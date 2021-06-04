@@ -1,0 +1,26 @@
+# Copyright m8mble 2021.
+# SPDX-License-Identifier: BSL-1.0
+
+[tool.poetry]
+name = "migrate"
+version = "0.1.0"
+description = "Utilities for migrating tests to Clean Test"
+authors = ["m8mble <m8mble@vivaldi.net>"]
+license = "BSL-1.0"
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+
+[tool.poetry.dev-dependencies]
+
+[tool.poetry.scripts]
+migrate = 'migrate.cli:main'
+
+[tool.black]
+line-length = 120
+target-version = ['py38']
+include = 'gen/.*\.py$'
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
