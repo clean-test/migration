@@ -47,6 +47,11 @@ class ReFilterHandler:
         return [l for l in lines if not any(rx.match(l.content) for rx in self.forbidden)]
 
 
+class SingleLineConverter:
+    def __call__(self, lines: list[Line], **kwargs) -> list[Line]:
+        return [self.handle_line(line, **kwargs) for line in lines]
+
+
 class IncludeAdder:
     def __call__(self, lines: list[Line], **kwargs) -> list[Line]:
         include_position = self._include_position(lines)
