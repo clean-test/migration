@@ -52,6 +52,38 @@ class SingleLineConverter:
         return [self.handle_line(line, **kwargs) for line in lines]
 
 
+class MultiLineConverter:
+    def __call__(self, lines: list[Line], **kwargs) -> list[Line]:
+        lines = [self.handle_line(l, **kwargs) for l in lines]
+        return [line for l in lines for line in l]
+
+
+class MacroCallConverter(MultiLineConverter):
+    def __init__(self):
+        self._buffer = []
+        self._macro = None
+
+    def handle_line(self, line: Line, **kwargs) -> list[Line]:
+        is_first_macro_line = False
+        result = [line]
+        if not self._macro:
+            self._macro = self.check_start(content=line.content)
+            is_first_macro_line = True
+        if self._macro:
+            if is_first_macro_line:
+                assert line.content[len(self._macro)] == "("
+                line.content = line.content[len(self._macro) + 1 :]
+            self._buffer.append(line)
+            result = []
+        if self._buffer and self._buffer[-1].content.endswith(");"):
+            line = self._buffer[-1]
+            line.content = line.content[: -len(");")]
+            result = self.handle_macro(macro=self._macro, lines=self._buffer, **kwargs)
+            self._buffer = []
+            self._macro = None
+        return result
+
+
 class IncludeAdder:
     def __call__(self, lines: list[Line], **kwargs) -> list[Line]:
         include_position = self._include_position(lines)

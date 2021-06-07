@@ -13,13 +13,13 @@ from . import base
 class SuiteConverter(base.SingleLineConverter):
     _rx_suite_begin = re.compile("^BOOST_AUTO_TEST_SUITE\((?P<name>\w+)\)$")
 
-    def handle_line(self, line: base.Line, **kwargs) -> base.Line:
+    def handle_line(self, line: base.Line, namespace: str, **kwargs) -> base.Line:
         m = SuiteConverter._rx_suite_begin.match(line.content)
         if m:
             m = m.groupdict()
             return base.Line(
                 indent=line.indent,
-                content=f'auto const {m["name"]} = {kwargs["namespace"]}::Suite{{"{m["name"]}", [] {{',
+                content=f'auto const {m["name"]} = {namespace}::Suite{{"{m["name"]}", [] {{',
             )
 
         if line.content == "BOOST_AUTO_TEST_SUITE_END()":
@@ -29,12 +29,12 @@ class SuiteConverter(base.SingleLineConverter):
 
 
 class CaseConverter(base.SingleLineConverter):
-    _rx_case_begin = re.compile("BOOST_AUTO_TEST_CASE\((?P<name>\w+)\)")
+    _rx_case_begin = re.compile("BOOST_AUTO_TEST_CASE\((?P<name>[^,)]+)(?P<extra>,[^)]+)?\)")
 
     def __init__(self):
         self._finisher = None
 
-    def handle_line(self, line: base.Line, **kwargs) -> base.Line:
+    def handle_line(self, line: base.Line, namespace: str, use_literals: bool, **kwargs) -> base.Line:
         if self._finisher is not None:
             assert not line.content or self._finisher.level <= line.level
             if line.level == self._finisher.level and not line.content.startswith("{") and line.content:
@@ -48,18 +48,36 @@ class CaseConverter(base.SingleLineConverter):
             return line
         m = m.groupdict()
 
-        if kwargs["use_literals"]:
+        if use_literals:
             content = f'"{m["name"]}"_test = []'
         else:
-            content = f'{kwargs["namespace"]}::Test{{"{m["name"]}"}} = []'
+            content = f'{namespace}::Test{{"{m["name"]}"}} = []'
         self._finisher = base.Line(indent=line.indent, content="};")
         return base.Line(indent=line.indent, content=content)
+
+def lift_parts(lines: list[base.Line], **kwargs) -> list[base.Line]:
+    return lines
+
+
+class ExpectationConverter(base.MacroCallConverter):
+    _rx_macro = re.compile("BOOST_CHECK\(")
+
+    def handle_macro(self, macro: str, lines: list[base.Line], namespace: str, **kwargs) -> list[base.Line]:
+        assert lines
+        lines[0].content = f'{namespace}::expect({lines[0].content}'
+        lines[-1].content += ");"
+        return lines
+
+    def check_start(self, content: str) -> str:
+        m = ExpectationConverter._rx_macro.match(content)
+        return m.group()[:-1] if m else None
 
 
 def load_handlers():
     return [
         base.ReFilterHandler({re.compile('^#include\s+[<"]boost/test')}),
         base.FilterHandler(forbidden={"#define BOOST_TEST_MAIN"}),
-        SuiteConverter(),
-        CaseConverter(),
+        # SuiteConverter(),
+        # CaseConverter(),
+        ExpectationConverter(),
     ]
