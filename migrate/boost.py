@@ -55,18 +55,12 @@ class CaseConverter(base.SingleLineConverter):
         self._finisher = base.Line(indent=line.indent, content="};")
         return base.Line(indent=line.indent, content=content)
 
-def lift_parts(lines: list[base.Line], **kwargs) -> list[base.Line]:
-    return lines
-
 
 class ExpectationConverter(base.MacroCallConverter):
     _rx_macro = re.compile("BOOST_CHECK\(")
 
-    def handle_macro(self, macro: str, lines: list[base.Line], namespace: str, **kwargs) -> list[base.Line]:
-        assert lines
-        lines[0].content = f'{namespace}::expect({lines[0].content}'
-        lines[-1].content += ");"
-        return lines
+    def handle_macro(self, macro: str, lines: list[base.Line], **kwargs) -> list[base.Line]:
+        return base.lift(lines=lines, **kwargs)
 
     def check_start(self, content: str) -> str:
         m = ExpectationConverter._rx_macro.match(content)

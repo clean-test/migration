@@ -5,6 +5,7 @@ import re
 import pathlib
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 
 @dataclass
@@ -107,3 +108,54 @@ class IncludeAdder:
             if line.content and not line.content.startswith("#include"):
                 return n
         return 0
+
+
+########################################################################################################################
+
+
+@dataclass
+class Token:
+    Kind = Enum("Kind", ["string_literal", "operator", "call_begin", "parenthesis_begin", "end", "unknown"])
+
+    content: str
+    line_idx: int
+    kind: Kind
+
+
+def _tokenize(lines: list[Line]) -> list[Token]:
+    splitters = [
+        # (?<!\\)"(([^"]|(?<=\\)")*)(?<!\\)"|(?<!\\)'([^']|\\.)(?<!\\)'
+        (r"""(?<!\\)"(([^"]|(?<=\\)")*)(?<!\\)"|(?<!\\)'([^']|\\.)(?<!\\)'""", Token.Kind.string_literal),
+        (r"\s*\b(not|&&|and|\|\||or|!=|==|[!+\-*/%])\b\s*", Token.Kind.operator),
+        (r"\w[\w0-9_<>\.:]+\s*[\({]", Token.Kind.call_begin),
+        (r"\(", Token.Kind.parenthesis_begin),
+        (r"\)|}", Token.Kind.end),
+    ]
+    result = [Token(content=line.content, line_idx=l, kind=Token.Kind.unknown) for l, line in enumerate(lines)]
+    for regex, kind in splitters:
+        splits = []
+        for t in result:
+            m = re.search(regex, t.content)
+            if not m or t.kind != Token.Kind.unknown:
+                splits.append(t)
+                continue
+            start, end = m.span()
+            if start > 0:
+                splits.append(Token(content=t.content[:start], kind=t.kind, line_idx=t.line_idx))
+            splits.append(Token(content=m.group(), kind=kind, line_idx=t.line_idx))
+            if end < len(t.content):
+                splits.append(Token(content=t.content[end:], kind=t.kind, line_idx=t.line_idx))
+        result = splits
+    return result
+
+
+def lift(lines: list[Line], namespace: str, connectors: list[str] = [], **kwargs) -> list[Line]:
+    assert lines
+    print(f' Input: {"~".join(l.content for l in lines)}')
+    tokens = _tokenize(lines=lines)
+    print(f' Tokens: {"~".join(f"{{{t.content}-{t.kind}}}" for t in tokens)}')
+    # note: we currently assume there are no comments contained.
+    lines[0].content = f"{namespace}::expect({lines[0].content}"
+    lines[-1].content += ");"
+    print(f' Output: {"~".join(l.content for l in lines)}')
+    return lines
