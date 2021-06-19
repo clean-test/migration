@@ -199,7 +199,6 @@ def _load_tree(tokens: list[Token]) -> Node:
         Token.Kind.parenthesis_begin: Node.Kind.scope,
     }
     for token in tokens:
-        # print('HUHU', token, root, last)
         if token.kind in kind_map:
             last = make_node(parent=last, kind=kind_map[token.kind], precedence=0, tokens=[token])
         elif token.kind == Token.Kind.end:
@@ -247,6 +246,24 @@ def _lift_node(node: Node, namespace: str, **kwargs):
 
 def _supports_preferential_lifting(node: Node) -> bool:
     return node.kind == Node.Kind.raw and False  # TODO
+
+
+_preferential_lift_number_handlers = [
+    # Integers
+    (re.compile(r"^(?P<number>\d+)(?P<suffix>u|l|ul|ll|ull)?$"), {None: "i"}),
+    # Floats
+    (re.compile(r"^(?P<number>\d*\.\d+)(?P<suffix>f|ld)?$"), {None: "d"}),
+]
+
+
+def _preferential_lift_number(content: str) -> optional[str]:
+    """ Compute preferential i.e. literal-based lift of content; return None iff this is not possible. """
+    for rx, overrides in _preferential_lift_number_handlers:
+        m = rx.match(content)
+        if m:
+            number, suffix = m.group("number"), m.group("suffix")
+            suffix = overrides.get(suffix, suffix)
+            return f"{number}_{suffix}"
 
 
 def _is_automatically_lifted(node: Node) -> bool:
