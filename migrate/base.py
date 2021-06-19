@@ -123,10 +123,10 @@ class Token:
 
 
 def _tokenize(lines: list[Line]) -> list[Token]:
+    # TODO: handling of ternary (=> some sort of if then else?)
     splitters = [
-        # (?<!\\)"(([^"]|(?<=\\)")*)(?<!\\)"|(?<!\\)'([^']|\\.)(?<!\\)'
         (r"""(?<!\\)"(([^"]|(?<=\\)")*)(?<!\\)"|(?<!\\)'([^']|\\.)(?<!\\)'""", Token.Kind.string_literal),
-        (r"\s*\b(not|&&|and|\|\||or|!=|==|[!+\-*/%])\b\s*", Token.Kind.operator),
+        (r"\s*\b(not|&&|and|\|\||or|!=|==|(?<!\+)\+(?!\+)|(?<!-)-(?!-)|[!*/%,~])\b\s*", Token.Kind.operator),
         (r"\w[\w0-9_<>\.:]+\s*[\({]", Token.Kind.call_begin),
         (r"\(", Token.Kind.parenthesis_begin),
         (r"\)|}", Token.Kind.end),
@@ -149,13 +149,175 @@ def _tokenize(lines: list[Line]) -> list[Token]:
     return result
 
 
-def lift(lines: list[Line], namespace: str, connectors: list[str] = [], **kwargs) -> list[Line]:
+@dataclass
+class Node:
+    Kind = Enum("Kind", ["unary", "binary", "scope", "call", "raw"])
+
+    parent: "Node"
+    kind: Kind
+    precedence: int = 0
+    tokens: list[Token] = field(default_factory=list)
+    children: list["Node"] = field(default_factory=list)
+
+
+def compute_precedence(token: Token, unary: bool) -> int:
+    if token.kind != Token.Kind.operator:
+        return 0
+    operator = token.content.strip()
+    if unary and operator in {"+", "-", "~", "!", "not"}:
+        return 3
+    return {
+        "*": 4,
+        "/": 4,
+        "%": 4,
+        "+": 5,
+        "-": 5,
+        "&&": 14,
+        "and": 14,
+        "||": 15,
+        "or": 15,
+    }[operator]
+
+
+def _load_tree(tokens: list[Token]) -> Node:
+    root = None
+    last = None
+
+    def make_node(**kwargs):
+        nonlocal root
+        node = Node(**kwargs)
+        if node.parent is not None:
+            node.parent.children.append(node)
+        else:
+            root = node
+        return node
+
+    kind_map = {
+        Token.Kind.unknown: Node.Kind.raw,
+        Token.Kind.string_literal: Node.Kind.raw,
+        Token.Kind.call_begin: Node.Kind.call,
+        Token.Kind.parenthesis_begin: Node.Kind.scope,
+    }
+    for token in tokens:
+        # print('HUHU', token, root, last)
+        if token.kind in kind_map:
+            last = make_node(parent=last, kind=kind_map[token.kind], precedence=0, tokens=[token])
+        elif token.kind == Token.Kind.end:
+            while last.kind not in {Node.Kind.scope, Node.Kind.call}:
+                last = last.parent
+            last.tokens.append(token)
+            last = last.parent
+        elif token.kind == Token.Kind.operator:
+            is_unary = True  # TODO (last.kind in {...})
+            precedence = compute_precedence(token, is_unary)
+            parent = last
+            while parent is not None and parent.precedence <= precedence:
+                parent = parent.parent
+            children = []
+            if parent:
+                children = parent.children
+                parent.children = []
+            assert len(children) < 2
+
+            last = make_node(
+                parent=parent,
+                kind=(Node.Kind.unary if is_unary else Node.Kind.binary),
+                precedence=precedence,
+                tokens=[token],
+                children=children,
+            )
+        else:
+            assert False, f"Unsupported token kind: {token}"
+    return root
+
+
+# TODO: parse string / view literals with suffixes (s / sv)
+
+
+def _lift_node(node: Node, namespace: str, **kwargs):
+    # Kind = Enum("Kind", ["unary", "binary", "scope", "call", "raw"])
+    # Kind = Enum("Kind", ["string_literal", "operator", "call_begin", "parenthesis_begin", "end", "unknown"])
+    if node.kind == Node.Kind.raw:
+        raw = node.tokens[0].content
+        # TODO: support all literal types (if literals are enabled)
+
+    node.tokens[0].content = f"{namespace}::lift({node.tokens[0].content}"
+    node.tokens[-1].content += ")"
+
+
+def _supports_preferential_lifting(node: Node) -> bool:
+    return node.kind == Node.Kind.raw and False  # TODO
+
+
+def _is_automatically_lifted(node: Node) -> bool:
+    return node.kind in {Node.Kind.unary, Node.Kind.binary, Node.Kind.scope}
+
+
+def _lift_tree(root: Node, **kwargs) -> Node:
+    # both auto -> nothing here, descend both
+    # one auto: nothing
+    # none auto: lift according to preference
+    num_auto_lifted_children = 0
+    for child in root.children:
+        if _is_automatically_lifted(node=child):
+            _lift_tree(root=child, **kwargs)
+            num_auto_lifted_children += 1
+
+    if num_auto_lifted_children == 0:
+        lifting_preference = [
+            c for c in root.children if _supports_preferential_lifting(node=c) and not _is_automatically_lifted(node=c)
+        ]
+        _lift_node(node=(lifting_preference + root.children)[0], **kwargs)
+    return root
+
+
+def _display_tree(root: Node, depth=0):
+    if root is not None:
+        print(f'{" " * (2 * depth + 3)} {root.precedence:02d} {root.kind} {" ".join(t.content for t in root.tokens)}')
+        ignored = [_display_tree(c, depth=depth + 1) for c in root.children]
+    else:
+        print("   None")
+
+
+def _collect_tokens(root: Node) -> list[Token]:
+    if root.kind in {Node.Kind.scope, Node.Kind.call}:
+        child_tokens = [_collect_tokens(root=child) for child in root.children]
+        return [root.tokens[0]] + [t for ts in child_tokens for t in ts] + [root.tokens[1]]
+    if root.kind == Node.Kind.raw:
+        return [root.tokens[0]]
+    if root.kind == Node.Kind.unary:
+        return [root.tokens[0]] + _collect_tokens(root=root.children[0])
+    if root.kind == Node.Kind.binary:
+        return _collect_tokens(root=root.children[0]) + [root.tokens[0]] + _collect_tokens(root=root.children[1])
+    assert False, "Unsupported note kind!"
+
+
+def _reconstruct_lines(tokens: list[Token], original: list[Line]) -> list[Line]:
+    return [
+        Line(content="".join(t.content for t in tokens if t.line_idx == lid), indent=line.indent)
+        for lid, line in enumerate(original)
+    ]
+
+
+def lift(lines: list[Line], connectors: list[str] = [], **kwargs) -> list[Line]:
     assert lines
     print(f' Input: {"~".join(l.content for l in lines)}')
     tokens = _tokenize(lines=lines)
-    print(f' Tokens: {"~".join(f"{{{t.content}-{t.kind}}}" for t in tokens)}')
+    print(f'  Tokens: {"~".join(f"{{{t.content}-{t.kind}}}" for t in tokens)}')
+    tree = _load_tree(tokens=tokens)
+    _display_tree(root=tree)
+    if tree.kind not in {Node.Kind.raw, Node.Kind.call}:  # at least two nodes in total
+        tree = _lift_tree(root=tree, **kwargs)
+    _display_tree(root=tree)
+    tokens = _collect_tokens(root=tree)
+    lines = _reconstruct_lines(tokens=tokens, original=lines)
+    # TODO: alter toplevel commas according to connectors
+
     # note: we currently assume there are no comments contained.
-    lines[0].content = f"{namespace}::expect({lines[0].content}"
+    lines[0].content = f"{kwargs['namespace']}::expect({lines[0].content}"
     lines[-1].content += ");"
     print(f' Output: {"~".join(l.content for l in lines)}')
     return lines
+
+
+# TODO: make name of alias namespace configurable
