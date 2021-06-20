@@ -4,6 +4,7 @@
 import re
 import pathlib
 
+from typing import Optional
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -245,23 +246,23 @@ def _lift_node(node: Node, namespace: str, **kwargs):
 
 
 def _supports_preferential_lifting(node: Node) -> bool:
-    return node.kind == Node.Kind.raw and False  # TODO
+    return node.kind == Node.Kind.raw and len(node.tokens) == 1 and _preferential_lift_number(node.tokens[-1])
 
 
 _preferential_lift_number_handlers = [
     # Integers
-    (re.compile(r"^(?P<number>\d+)(?P<suffix>u|l|ul|ll|ull)?$"), {None: "i"}),
+    (re.compile(r"^(?P<number>\d[\d']*)(?P<suffix>u|l|ul|ll|ull)?$"), {None: "i", "llu": "ull", "lu": "ul"}),
     # Floats
-    (re.compile(r"^(?P<number>\d*\.\d+)(?P<suffix>f|ld)?$"), {None: "d"}),
+    (re.compile(r"^(?P<number>[\d']*\.[\d']+)(?P<suffix>f|ld)?$"), {None: "d"}),
 ]
 
 
-def _preferential_lift_number(content: str) -> optional[str]:
+def _preferential_lift_number(content: str) -> Optional[str]:
     """ Compute preferential i.e. literal-based lift of content; return None iff this is not possible. """
     for rx, overrides in _preferential_lift_number_handlers:
         m = rx.match(content)
         if m:
-            number, suffix = m.group("number"), m.group("suffix")
+            number, suffix = m.group("number"), m.group("suffix").lower()
             suffix = overrides.get(suffix, suffix)
             return f"{number}_{suffix}"
 
@@ -282,7 +283,10 @@ def _lift_tree(root: Node, **kwargs) -> Node:
 
     if num_auto_lifted_children == 0:
         lifting_preference = [
-            c for c in root.children if _supports_preferential_lifting(node=c) and not _is_automatically_lifted(node=c)
+            # TODO: only if literals are enabled
+            c
+            for c in root.children
+            if _supports_preferential_lifting(node=c) and not _is_automatically_lifted(node=c)
         ]
         _lift_node(node=(lifting_preference + root.children)[0], **kwargs)
     return root
