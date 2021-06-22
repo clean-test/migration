@@ -22,7 +22,7 @@ class Line:
         return len(self.indent)
 
 
-_rx_split_line = re.compile("^(?P<indent>\s*)(?P<content>([^\s].*)?)$")
+_rx_split_line = re.compile(r"^(?P<indent>\s*)(?P<content>([^\s].*)?)$")
 
 
 def load_lines(path: pathlib.Path):
@@ -206,17 +206,21 @@ def _load_tree(tokens: list[Token]) -> Node:
             while last.kind not in {Node.Kind.scope, Node.Kind.call}:
                 last = last.parent
             last.tokens.append(token)
-            last = last.parent
         elif token.kind == Token.Kind.operator:
-            is_unary = True  # TODO (last.kind in {...})
+            is_unary = (
+                last is None
+                or last.kind in {Node.Kind.unary, Node.Kind.binary}
+                or (last.kind in {Node.Kind.scope, Node.Kind.call} and len(last.tokens) == 1)
+            )
             precedence = compute_precedence(token, is_unary)
             parent = last
             while parent is not None and parent.precedence <= precedence:
                 parent = parent.parent
-            children = []
             if parent:
                 children = parent.children
                 parent.children = []
+            else:
+                children = [r for r in [root] if r]
             assert len(children) < 2
 
             last = make_node(
@@ -237,16 +241,17 @@ def _load_tree(tokens: list[Token]) -> Node:
 def _lift_node(node: Node, namespace: str, **kwargs):
     # Kind = Enum("Kind", ["unary", "binary", "scope", "call", "raw"])
     # Kind = Enum("Kind", ["string_literal", "operator", "call_begin", "parenthesis_begin", "end", "unknown"])
-    if node.kind == Node.Kind.raw:
-        raw = node.tokens[0].content
-        # TODO: support all literal types (if literals are enabled)
+    lifted = False
+    if node.kind == Node.Kind.raw and len(node.tokens) == 1:
+        token = node.tokens[0]
+        pref = _preferential_lift_number(token.content)
+        if pref:
+            token.content = pref
+            lifted = True
 
-    node.tokens[0].content = f"{namespace}::lift({node.tokens[0].content}"
-    node.tokens[-1].content += ")"
-
-
-def _supports_preferential_lifting(node: Node) -> bool:
-    return node.kind == Node.Kind.raw and len(node.tokens) == 1 and _preferential_lift_number(node.tokens[-1])
+    if not lifted:
+        node.tokens[0].content = f"{namespace}::lift({node.tokens[0].content}"
+        node.tokens[-1].content += ")"
 
 
 _preferential_lift_number_handlers = [
@@ -265,6 +270,10 @@ def _preferential_lift_number(content: str) -> Optional[str]:
             number, suffix = m.group("number"), m.group("suffix").lower()
             suffix = overrides.get(suffix, suffix)
             return f"{number}_{suffix}"
+
+
+def _supports_preferential_lifting(node: Node) -> bool:
+    return len(node.tokens) == 1 and _preferential_lift_number(node.tokens[0].content) is not None
 
 
 def _is_automatically_lifted(node: Node) -> bool:

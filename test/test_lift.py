@@ -7,11 +7,12 @@ from migrate import base
 
 
 testdata = [
-    ("foo()", "foo()"),
-    ("true and foo()", "ct::lift(true) and foo()"),
+    ("foo()", "ct::expect(foo());"),
+    ("true and foo()", "ct::expect(ct::lift(true) and foo());"),
+    ("not foo()", "ct::expect(not ct::lift(foo()));"),
 ]
 
 
 @pytest.mark.parametrize("case,expected", testdata)
 def test_lift(case, expected):
-    assert base.lift(lines=[base.Line(indent="", content=case)])[0].content == expected
+    assert base.lift(lines=[base.Line(indent="", content=case)], namespace="ct")[0].content == expected
