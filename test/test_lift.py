@@ -10,6 +10,7 @@ testdata = [
     ("foo()", "ct::expect(foo());"),
     ("true and foo()", "ct::expect(ct::lift(true) and foo());"),
     ("not foo()", "ct::expect(not ct::lift(foo()));"),
+    ('not not foo(), "hi" << you()', 'ct::expect(not not ct::lift(foo())) << "hi" << you();'),
 ]
 
 

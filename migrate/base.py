@@ -127,7 +127,7 @@ def _tokenize(lines: list[Line]) -> list[Token]:
     # TODO: handling of ternary (=> some sort of if then else?)
     splitters = [
         (r"""(?<!\\)"(([^"]|(?<=\\)")*)(?<!\\)"|(?<!\\)'([^']|\\.)(?<!\\)'""", Token.Kind.string_literal),
-        (r"\s*\b(not|&&|and|\|\||or|!=|==|(?<!\+)\+(?!\+)|(?<!-)-(?!-)|[!*/%,~])\b\s*", Token.Kind.operator),
+        (r"(\s+|\b||(?<=\W)(?=\W))(not|&&|and|\|\||or|!=|==|<<|>>|(?<!\+)\+(?!\+)|(?<!-)-(?!-)|[!*/%,~])(\s+|\b||(?<=\W)(?=\W))", Token.Kind.operator),
         (r"\w[\w0-9_<>\.:]+\s*[\({]", Token.Kind.call_begin),
         (r"\(", Token.Kind.parenthesis_begin),
         (r"\)|}", Token.Kind.end),
@@ -136,16 +136,21 @@ def _tokenize(lines: list[Line]) -> list[Token]:
     for regex, kind in splitters:
         splits = []
         for t in result:
-            m = re.search(regex, t.content)
-            if not m or t.kind != Token.Kind.unknown:
+            while True:
+                m = re.search(regex, t.content)
+                if not m or t.kind != Token.Kind.unknown:
+                    break
+                start, end = m.span()
+                if start > 0:
+                    splits.append(Token(content=t.content[:start], kind=t.kind, line_idx=t.line_idx))
+                splits.append(Token(content=m.group(), kind=kind, line_idx=t.line_idx))
+                if end == len(t.content):
+                    t = None
+                    break
+                print('New round: ', t, kind)
+                t = Token(content=t.content[end:], kind=t.kind, line_idx=t.line_idx)
+            if t:
                 splits.append(t)
-                continue
-            start, end = m.span()
-            if start > 0:
-                splits.append(Token(content=t.content[:start], kind=t.kind, line_idx=t.line_idx))
-            splits.append(Token(content=m.group(), kind=kind, line_idx=t.line_idx))
-            if end < len(t.content):
-                splits.append(Token(content=t.content[end:], kind=t.kind, line_idx=t.line_idx))
         result = splits
     return result
 
@@ -173,10 +178,13 @@ def compute_precedence(token: Token, unary: bool) -> int:
         "%": 4,
         "+": 5,
         "-": 5,
+        "<<": 7,
+        ">>": 7,
         "&&": 14,
         "and": 14,
         "||": 15,
         "or": 15,
+        ",": 17,
     }[operator]
 
 
