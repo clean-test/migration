@@ -147,7 +147,6 @@ def _tokenize(lines: list[Line]) -> list[Token]:
                 if end == len(t.content):
                     t = None
                     break
-                print('New round: ', t, kind)
                 t = Token(content=t.content[end:], kind=t.kind, line_idx=t.line_idx)
             if t:
                 splits.append(t)
@@ -221,12 +220,14 @@ def _load_tree(tokens: list[Token]) -> Node:
                 or (last.kind in {Node.Kind.scope, Node.Kind.call} and len(last.tokens) == 1)
             )
             precedence = compute_precedence(token, is_unary)
+
             parent = last
-            while parent is not None and parent.precedence <= precedence:
+            while parent is not None and parent.precedence < precedence:
                 parent = parent.parent
+
             if parent:
-                children = parent.children
-                parent.children = []
+                children = [parent.children[-1]] if parent.children else []
+                parent.children = parent.children[:-1]
             else:
                 children = [r for r in [root] if r]
             assert len(children) < 2
@@ -309,10 +310,13 @@ def _lift_tree(root: Node, **kwargs) -> Node:
     return root
 
 
-def _display_tree(root: Node, depth=0):
+def _display_tree(root: Node, highlight=None, depth=0):
+    if highlight is None:
+        highlight = set()
+    h = " ***" if any(root == h for h in highlight) else ""
     if root is not None:
-        print(f'{" " * (2 * depth + 3)} {root.precedence:02d} {root.kind} {" ".join(t.content for t in root.tokens)}')
-        ignored = [_display_tree(c, depth=depth + 1) for c in root.children]
+        print(f'{" " * (2 * depth + 3)} {root.precedence:02d} {root.kind} {" ".join(t.content for t in root.tokens)}{h}')
+        ignored = [_display_tree(c, highlight, depth=depth + 1) for c in root.children]
     else:
         print("   None")
 
@@ -327,7 +331,7 @@ def _collect_tokens(root: Node) -> list[Token]:
         return [root.tokens[0]] + _collect_tokens(root=root.children[0])
     if root.kind == Node.Kind.binary:
         return _collect_tokens(root=root.children[0]) + [root.tokens[0]] + _collect_tokens(root=root.children[1])
-    assert False, "Unsupported note kind!"
+    assert False, "Unsupported node kind!"
 
 
 def _reconstruct_lines(tokens: list[Token], original: list[Line]) -> list[Line]:
