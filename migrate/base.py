@@ -163,6 +163,7 @@ class Node:
     precedence: int = 0
     tokens: list[Token] = field(default_factory=list)
     children: list["Node"] = field(default_factory=list)
+    lifting_barrier: bool = False
 
 
 def compute_precedence(token: Token, unary: bool) -> int:
@@ -290,11 +291,9 @@ def _is_automatically_lifted(node: Node) -> bool:
 
 
 def _lift_tree(root: Node, **kwargs) -> Node:
-    # both auto -> nothing here, descend both
-    # one auto: nothing
-    # none auto: lift according to preference
     num_auto_lifted_children = 0
-    for child in root.children:
+    children = root.children if not root.lifting_barrier else root.children[:1]
+    for child in children:
         if _is_automatically_lifted(node=child):
             _lift_tree(root=child, **kwargs)
             num_auto_lifted_children += 1
@@ -303,10 +302,10 @@ def _lift_tree(root: Node, **kwargs) -> Node:
         lifting_preference = [
             # TODO: only if literals are enabled
             c
-            for c in root.children
+            for c in children
             if _supports_preferential_lifting(node=c) and not _is_automatically_lifted(node=c)
         ]
-        _lift_node(node=(lifting_preference + root.children)[0], **kwargs)
+        _lift_node(node=(lifting_preference + children)[0], **kwargs)
     return root
 
 
@@ -340,6 +339,20 @@ def _reconstruct_lines(tokens: list[Token], original: list[Line]) -> list[Line]:
         for lid, line in enumerate(original)
     ]
 
+def _insert_connectors(root: Node, connectors: list[str]) -> Node:
+    if root.kind == Node.Kind.binary and root.tokens[-1].content.strip() == ',':
+        root.tokens[-1].content = re.sub(',', connectors[0], root.tokens[-1].content)
+        if '<<' in connectors[0]:
+            root.lifting_barrier = True
+        _insert_connectors(root=root.children[1], connectors=connectors[1:])
+    return root
+
+def _normalize_connectors(connectors: list[str]):
+    """ Ensure to include the ::expect-ending braces in the first << connector. """
+    matches = [i for i, c in enumerate(connectors) if '<<' in c]
+    if matches:
+        connectors[matches[0]] = f') {connectors[matches[0]]}'
+    return bool(matches), connectors
 
 def lift(lines: list[Line], connectors: list[str] = [], **kwargs) -> list[Line]:
     assert lines
@@ -348,8 +361,13 @@ def lift(lines: list[Line], connectors: list[str] = [], **kwargs) -> list[Line]:
     print(f'  Tokens: {"~".join(f"{{{t.content}-{t.kind}}}" for t in tokens)}')
     tree = _load_tree(tokens=tokens)
     _display_tree(root=tree)
+    expect_is_internally_closed, connectors = _normalize_connectors(connectors)
+    tree = _insert_connectors(root=tree, connectors=connectors)
+    print('with connectors')
+    _display_tree(root=tree)
     if tree.kind not in {Node.Kind.raw, Node.Kind.call}:  # at least two nodes in total
         tree = _lift_tree(root=tree, **kwargs)
+    print('lifted')
     _display_tree(root=tree)
     tokens = _collect_tokens(root=tree)
     lines = _reconstruct_lines(tokens=tokens, original=lines)
@@ -357,7 +375,9 @@ def lift(lines: list[Line], connectors: list[str] = [], **kwargs) -> list[Line]:
 
     # note: we currently assume there are no comments contained.
     lines[0].content = f"{kwargs['namespace']}::expect({lines[0].content}"
-    lines[-1].content += ");"
+    if not expect_is_internally_closed:
+        lines[-1].content += ")"
+    lines[-1].content += ";"
     print(f' Output: {"~".join(l.content for l in lines)}')
     return lines
 
