@@ -127,7 +127,10 @@ def _tokenize(lines: list[Line]) -> list[Token]:
     # TODO: handling of ternary (=> some sort of if then else?)
     splitters = [
         (r"""(?<!\\)"(([^"]|(?<=\\)")*)(?<!\\)"|(?<!\\)'([^']|\\.)(?<!\\)'""", Token.Kind.string_literal),
-        (r"(\s+|\b||(?<=\W)(?=\W))(not|&&|and|\|\||or|!=|==|<<|>>|(?<!\+)\+(?!\+)|(?<!-)-(?!-)|[!*/%,~])(\s+|\b||(?<=\W)(?=\W))", Token.Kind.operator),
+        (
+            r"(\s+|\b||(?<=\W)(?=\W))(not|&&|and|\|\||or|!=|==|<<|>>|(?<!\+)\+(?!\+)|(?<!-)-(?!-)|[!*/%,~])(\s+|\b||(?<=\W)(?=\W))",
+            Token.Kind.operator,
+        ),
         (r"\w[\w0-9_<>\.:]+\s*[\({]", Token.Kind.call_begin),
         (r"\(", Token.Kind.parenthesis_begin),
         (r"\)|}", Token.Kind.end),
@@ -314,7 +317,9 @@ def _display_tree(root: Node, highlight=None, depth=0):
         highlight = set()
     h = " ***" if any(root == h for h in highlight) else ""
     if root is not None:
-        print(f'{" " * (2 * depth + 3)} {root.precedence:02d} {root.kind} {" ".join(t.content for t in root.tokens)}{h}')
+        print(
+            f'{" " * (2 * depth + 3)} {root.precedence:02d} {root.kind} {" ".join(t.content for t in root.tokens)}{h}'
+        )
         ignored = [_display_tree(c, highlight, depth=depth + 1) for c in root.children]
     else:
         print("   None")
@@ -339,20 +344,23 @@ def _reconstruct_lines(tokens: list[Token], original: list[Line]) -> list[Line]:
         for lid, line in enumerate(original)
     ]
 
+
 def _insert_connectors(root: Node, connectors: list[str]) -> Node:
-    if root.kind == Node.Kind.binary and root.tokens[-1].content.strip() == ',':
-        root.tokens[-1].content = re.sub(',', connectors[0], root.tokens[-1].content)
-        if '<<' in connectors[0]:
+    if root.kind == Node.Kind.binary and root.tokens[-1].content.strip() == ",":
+        root.tokens[-1].content = re.sub(",", connectors[0], root.tokens[-1].content)
+        if "<<" in connectors[0]:
             root.lifting_barrier = True
         _insert_connectors(root=root.children[1], connectors=connectors[1:])
     return root
 
+
 def _normalize_connectors(connectors: list[str]):
     """ Ensure to include the ::expect-ending braces in the first << connector. """
-    matches = [i for i, c in enumerate(connectors) if '<<' in c]
+    matches = [i for i, c in enumerate(connectors) if "<<" in c]
     if matches:
-        connectors[matches[0]] = f') {connectors[matches[0]]}'
+        connectors[matches[0]] = f") {connectors[matches[0]]}"
     return bool(matches), connectors
+
 
 def lift(lines: list[Line], connectors: list[str] = [], **kwargs) -> list[Line]:
     assert lines
@@ -363,11 +371,11 @@ def lift(lines: list[Line], connectors: list[str] = [], **kwargs) -> list[Line]:
     _display_tree(root=tree)
     expect_is_internally_closed, connectors = _normalize_connectors(connectors)
     tree = _insert_connectors(root=tree, connectors=connectors)
-    print('with connectors')
+    print("with connectors")
     _display_tree(root=tree)
     if tree.kind not in {Node.Kind.raw, Node.Kind.call}:  # at least two nodes in total
         tree = _lift_tree(root=tree, **kwargs)
-    print('lifted')
+    print("lifted")
     _display_tree(root=tree)
     tokens = _collect_tokens(root=tree)
     lines = _reconstruct_lines(tokens=tokens, original=lines)
