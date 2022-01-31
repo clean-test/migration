@@ -183,10 +183,13 @@ def compute_precedence(token: Token, unary: bool) -> int:
         "-": 5,
         "<<": 7,
         ">>": 7,
+        "==": 10,
+        "!=": 10,
         "&&": 14,
         "and": 14,
         "||": 15,
         "or": 15,
+        "=": 16,
         ",": 17,
     }[operator]
 
