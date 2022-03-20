@@ -354,7 +354,7 @@ def _reconstruct_lines(tokens: list[Token], original: list[Line]) -> list[Line]:
 
 def _insert_connectors(root: Node, connectors: list[str]) -> Node:
     if connectors and root.kind == Node.Kind.binary and root.tokens[-1].content.strip() == ",":
-        root.tokens[-1].content = re.sub(",", connectors[0], root.tokens[-1].content)
+        root.tokens[-1].content = f" {connectors[0]} "
         if "<<" in connectors[0]:
             root.lifting_barrier = True
         _insert_connectors(root=root.children[1], connectors=connectors[1:])
