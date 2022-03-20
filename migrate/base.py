@@ -229,7 +229,11 @@ def _load_tree(tokens: list[Token]) -> Node:
             precedence = compute_precedence(token, is_unary)
 
             parent = last
-            while parent is not None and parent.precedence < precedence:
+            while (
+                parent is not None
+                and parent.precedence < precedence
+                and (parent.kind != Node.Kind.call or len(parent.tokens) > 1)
+            ):
                 parent = parent.parent
 
             if parent:
