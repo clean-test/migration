@@ -283,7 +283,7 @@ _preferential_lift_number_handlers = [
 
 
 def _preferential_lift_number(content: str) -> Optional[str]:
-    """ Compute preferential i.e. literal-based lift of content; return None iff this is not possible. """
+    """Compute preferential i.e. literal-based lift of content; return None iff this is not possible."""
     for rx, overrides in _preferential_lift_number_handlers:
         m = rx.match(content)
         if m:
@@ -362,7 +362,7 @@ def _insert_connectors(root: Node, connectors: list[str]) -> Node:
 
 
 def _normalize_connectors(connectors: list[str]):
-    """ Ensure to include the ::expect-ending braces in the first << connector. """
+    """Ensure to include the ::expect-ending braces in the first << connector."""
     matches = [i for i, c in enumerate(connectors) if "<<" in c]
     if matches:
         connectors[matches[0]] = f") {connectors[matches[0]]}"
