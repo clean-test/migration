@@ -57,13 +57,16 @@ class CaseConverter(base.SingleLineConverter):
 
 
 class ExpectationConverter(base.MacroCallConverter):
-    _rx_macro = re.compile("BOOST_CHECK\(")
+    def __init__(self, macro, *, connectors=[]):
+        super().__init__()
+        self._rx_macro = re.compile(f"{macro}\(")
+        self._connectors = connectors
 
     def handle_macro(self, macro: str, lines: list[base.Line], **kwargs) -> list[base.Line]:
-        return base.lift(lines=lines, **kwargs)
+        return base.lift(lines=lines, connectors=self._connectors, **kwargs)
 
     def check_start(self, content: str) -> str:
-        m = ExpectationConverter._rx_macro.match(content)
+        m = self._rx_macro.match(content)
         return m.group()[:-1] if m else None
 
 
@@ -73,5 +76,9 @@ def load_handlers():
         base.FilterHandler(forbidden={"#define BOOST_TEST_MAIN"}),
         # SuiteConverter(),
         # CaseConverter(),
-        ExpectationConverter(),
+        ExpectationConverter("BOOST_CHECK"),
+    ] + [
+        ExpectationConverter(f"BOOST_{lvl}{macro}", connectors=[c for c in [connector] if c is not None])
+        for lvl in ("CHECK", "WARN")  # TODO REQUIRE
+        for macro, connector in [("", None), ("_EQUAL", "==")]
     ]
