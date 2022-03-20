@@ -13,6 +13,7 @@ testdata = [
     ('not not foo(), "hi" << you()', 'ct::expect(not not ct::lift(foo())) << "hi" << you();', ["<<"]),
     ('not normal()', 'ct::expect(not ct::lift(normal()));', []),
     ('n::f(a, "x") == "x"', 'ct::expect(ct::lift(n::f(a, "x")) == "x");', []),
+    ('f(a, "x") == "x"', 'ct::expect(ct::lift(f(a, "x")) == "x");', []),
 ]
 
 

@@ -131,7 +131,7 @@ def _tokenize(lines: list[Line]) -> list[Token]:
             r"(\s+|\b|(?<=\W)(?=\W))(not|&&|and|\|\||or|!=|==|<<|>>|(?<!\+)\+(?!\+)|(?<!-)-(?!-)|[!*/%,~])(\s+|\b|(?<=\W)(?=\W))",
             Token.Kind.operator,
         ),
-        (r"\w[\w0-9_<>\.:]+\s*[\({]", Token.Kind.call_begin),
+        (r"\w[\w0-9_<>\.:]*\s*[\({]", Token.Kind.call_begin),
         (r"\(", Token.Kind.parenthesis_begin),
         (r"\)|}", Token.Kind.end),
     ]
