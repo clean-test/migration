@@ -79,6 +79,6 @@ def load_handlers():
         ExpectationConverter("BOOST_CHECK"),
     ] + [
         ExpectationConverter(f"BOOST_{lvl}{macro}", connectors=[c for c in [connector] if c is not None])
-        for lvl in ("CHECK", "WARN")  # TODO REQUIRE
+        for lvl in ("CHECK", "WARN", "REQUIRE")
         for macro, connector in [("", None), ("_EQUAL", "==")]
     ]

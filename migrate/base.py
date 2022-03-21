@@ -217,7 +217,7 @@ def _load_tree(tokens: list[Token]) -> Node:
         if token.kind in kind_map:
             last = make_node(parent=last, kind=kind_map[token.kind], precedence=0, tokens=[token])
         elif token.kind == Token.Kind.end:
-            while last.kind not in {Node.Kind.scope, Node.Kind.call}:
+            while last.kind not in {Node.Kind.scope, Node.Kind.call} or len(last.tokens) >= 2:
                 last = last.parent
             last.tokens.append(token)
         elif token.kind == Token.Kind.operator:
@@ -354,7 +354,7 @@ def _reconstruct_lines(tokens: list[Token], original: list[Line]) -> list[Line]:
 
 def _insert_connectors(root: Node, connectors: list[str]) -> Node:
     if connectors and root.kind == Node.Kind.binary and root.tokens[-1].content.strip() == ",":
-        root.tokens[-1].content = f" {connectors[0]} "
+        root.tokens[-1].content = connectors[0]
         if "<<" in connectors[0]:
             root.lifting_barrier = True
         _insert_connectors(root=root.children[1], connectors=connectors[1:])
@@ -363,9 +363,10 @@ def _insert_connectors(root: Node, connectors: list[str]) -> Node:
 
 def _normalize_connectors(connectors: list[str]):
     """Ensure to include the ::expect-ending braces in the first << connector."""
+    connectors = [f" {c.strip()} " for c in connectors]
     matches = [i for i, c in enumerate(connectors) if "<<" in c]
     if matches:
-        connectors[matches[0]] = f") {connectors[matches[0]]}"
+        connectors[matches[0]] = f"){connectors[matches[0]]}"
     return bool(matches), connectors
 
 
