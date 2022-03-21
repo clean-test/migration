@@ -276,9 +276,9 @@ def _lift_node(node: Node, namespace: str, **kwargs):
 
 _preferential_lift_number_handlers = [
     # Integers
-    (re.compile(r"^(?P<number>\d[\d']*)(?P<suffix>u|l|ul|ll|ull)?$"), {None: "i", "llu": "ull", "lu": "ul"}),
+    (re.compile(r"^(?P<number>\d[\d']*)(?P<suffix>u|l|ul|ll|ull)?$"), {"": "i", "llu": "ull", "lu": "ul"}),
     # Floats
-    (re.compile(r"^(?P<number>[\d']*\.[\d']+)(?P<suffix>f|ld)?$"), {None: "d"}),
+    (re.compile(r"^(?P<number>[\d']*\.[\d']+)(?P<suffix>f|ld)?$"), {"": "d"}),
 ]
 
 
@@ -287,7 +287,7 @@ def _preferential_lift_number(content: str) -> Optional[str]:
     for rx, overrides in _preferential_lift_number_handlers:
         m = rx.match(content)
         if m:
-            number, suffix = m.group("number"), m.group("suffix").lower()
+            number, suffix = m.group("number"), m.groupdict(default="")["suffix"].lower()
             suffix = overrides.get(suffix, suffix)
             return f"{number}_{suffix}"
 

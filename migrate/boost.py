@@ -76,7 +76,7 @@ def load_handlers():
         base.FilterHandler(forbidden={"#define BOOST_TEST_MAIN"}),
         # SuiteConverter(),
         # CaseConverter(),
-        ExpectationConverter("BOOST_CHECK"),
+        ExpectationConverter("BOOST_TEST"),
     ] + [
         ExpectationConverter(f"BOOST_{lvl}{macro}", connectors=[c for c in [connector] if c is not None])
         for lvl in ("CHECK", "WARN", "REQUIRE")

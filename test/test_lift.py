@@ -15,6 +15,7 @@ testdata = [
     ('n::f(a, "x") == "x"', 'ct::expect(ct::lift(n::f(a, "x")) == "x");', []),
     ('f(a, "x") == "x"', 'ct::expect(ct::lift(f(a, "x")) == "x");', []),
     ('f(g(h()))', 'ct::expect(f(g(h())));', []),
+    ('a, 2', 'ct::expect(a == 2_i);', ["=="]),
 ]
 
 
