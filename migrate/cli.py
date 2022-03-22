@@ -28,5 +28,6 @@ def _parse_commandline():
 
 def main():
     args = _parse_commandline()
+    handlers = migrate.load_handlers(**args)
     for f in args.pop("files"):
-        migrate.convert(path=f, **args)
+        migrate.convert(path=f, handlers=handlers, **args)

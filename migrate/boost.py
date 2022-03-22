@@ -57,20 +57,21 @@ class CaseConverter(base.SingleLineConverter):
 
 
 class ExpectationConverter(base.MacroCallConverter):
-    def __init__(self, macro, *, connectors=[]):
+    def __init__(self, macro, *, connectors=[], terminator: str = ""):
         super().__init__()
         self._rx_macro = re.compile(f"{macro}\(")
         self._connectors = connectors
+        self._terminator = terminator
 
     def handle_macro(self, macro: str, lines: list[base.Line], **kwargs) -> list[base.Line]:
-        return base.lift(lines=lines, connectors=self._connectors, **kwargs)
+        return base.lift(lines=lines, connectors=self._connectors, terminator=self._terminator, **kwargs)
 
     def check_start(self, content: str) -> str:
         m = self._rx_macro.match(content)
         return m.group()[:-1] if m else None
 
 
-def load_handlers():
+def load_handlers(namespace: str):
     return [
         base.ReFilterHandler({re.compile('^#include\s+[<"]boost/test')}),
         base.FilterHandler(forbidden={"#define BOOST_TEST_MAIN"}),
@@ -78,7 +79,7 @@ def load_handlers():
         # CaseConverter(),
         ExpectationConverter("BOOST_TEST"),
     ] + [
-        ExpectationConverter(f"BOOST_{lvl}{macro}", connectors=[c for c in [connector] if c is not None])
-        for lvl in ("CHECK", "WARN", "REQUIRE")
+            ExpectationConverter(f"BOOST_{lvl}{macro}", connectors=[c for c in [connector] if c is not None], terminator=(f"<< {namespace}::{term}" if term else ""))
+        for lvl, term in (("WARN", "flaky"), ("CHECK", ""), ("REQUIRE", "asserted"))
         for macro, connector in [("", None), ("_EQUAL", "==")]
     ]
