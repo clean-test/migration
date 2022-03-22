@@ -370,7 +370,7 @@ def _normalize_connectors(connectors: list[str]):
     return bool(matches), connectors
 
 
-def lift(lines: list[Line], connectors: list[str] = [], **kwargs) -> list[Line]:
+def lift(lines: list[Line], connectors: list[str] = [], terminator: str = "", **kwargs) -> list[Line]:
     assert lines
     print(f' Input: {"~".join(l.content for l in lines)}')
     tokens = _tokenize(lines=lines)
@@ -393,7 +393,9 @@ def lift(lines: list[Line], connectors: list[str] = [], **kwargs) -> list[Line]:
     lines[0].content = f"{kwargs['namespace']}::expect({lines[0].content}"
     if not expect_is_internally_closed:
         lines[-1].content += ")"
-    lines[-1].content += ";"
+    if terminator:
+        terminator = f" {terminator.strip()}"
+    lines[-1].content += f"{terminator};"
     print(f' Output: {"~".join(l.content for l in lines)}')
     return lines
 
