@@ -370,7 +370,7 @@ def _normalize_connectors(connectors: list[str]):
     return bool(matches), connectors
 
 
-def lift(lines: list[Line], connectors: list[str] = [], terminator: str = "", **kwargs) -> list[Line]:
+def _connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Line]:
     assert lines
     print(f' Input: {"~".join(l.content for l in lines)}')
     tokens = _tokenize(lines=lines)
@@ -381,6 +381,18 @@ def lift(lines: list[Line], connectors: list[str] = [], terminator: str = "", **
     tree = _insert_connectors(root=tree, connectors=connectors)
     print("with connectors")
     _display_tree(root=tree)
+    return tree, expect_is_internally_closed
+
+
+def connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Line]:
+    tree, _ = _connect(lines=lines, connectors=connectors)
+    tokens = _collect_tokens(root=tree)
+    lines = _reconstruct_lines(tokens=tokens, original=lines)
+    return lines
+
+
+def lift(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Line]:
+    tree, expect_is_internally_closed = _connect(lines=lines, connectors=connectors)
     if tree.kind not in {Node.Kind.raw, Node.Kind.call}:  # at least two nodes in total
         tree = _lift_tree(root=tree, **kwargs)
     print("lifted")
@@ -393,9 +405,7 @@ def lift(lines: list[Line], connectors: list[str] = [], terminator: str = "", **
     lines[0].content = f"{kwargs['namespace']}::expect({lines[0].content}"
     if not expect_is_internally_closed:
         lines[-1].content += ")"
-    if terminator:
-        terminator = f" {terminator.strip()}"
-    lines[-1].content += f"{terminator};"
+    lines[-1].content += ";"
     print(f' Output: {"~".join(l.content for l in lines)}')
     return lines
 

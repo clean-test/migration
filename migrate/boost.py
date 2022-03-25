@@ -56,6 +56,21 @@ class CaseConverter(base.SingleLineConverter):
         return base.Line(indent=line.indent, content=content)
 
 
+class EqualCollectionExpectationConverter(base.MacroCallConverter):
+    _rx_macro_start = re.compile("BOOST_(?P<lvl>WARN|CHECK|REQUIRE)_EQUAL_COLLECTIONS\(")
+
+    def check_start(self, content: str) -> str:
+        m = self._rx_macro_start.match(content)
+        return m.group()[:-1] if m else None
+
+    def handle_macro(self, macro: str, lines: list[base.Line], **kwargs) -> list[base.Line]:
+        lines = base.connect(lines=lines, connectors=[",", "}, std::ranges::subrange{", ","], **kwargs)
+        lvl = self._rx_macro_start.match(f"{macro}(").group("lvl")
+        lines[0].content = f"BOOST_{lvl}_EQUAL(std::ranges::equal(std::ranges::subrange{{{lines[0].content}"
+        lines[-1].content = f"{lines[-1].content}}}));"
+        return lines
+
+
 class ExpectationConverter(base.MacroCallConverter):
     def __init__(self, macro, *, connectors=[], terminator: str = ""):
         super().__init__()
@@ -64,7 +79,9 @@ class ExpectationConverter(base.MacroCallConverter):
         self._terminator = terminator
 
     def handle_macro(self, macro: str, lines: list[base.Line], **kwargs) -> list[base.Line]:
-        return base.lift(lines=lines, connectors=self._connectors, terminator=self._terminator, **kwargs)
+        lines = base.lift(lines=lines, connectors=self._connectors, **kwargs)
+        lines[-1].content = f"{lines[-1].content[:-1]} {self._terminator.strip()};"
+        return lines
 
     def check_start(self, content: str) -> str:
         m = self._rx_macro.match(content)
@@ -78,12 +95,16 @@ def load_handlers(namespace: str):
         SuiteConverter(),
         CaseConverter(),
         ExpectationConverter("BOOST_TEST"),
+        EqualCollectionExpectationConverter(),
     ] + [
         ExpectationConverter(
             f"BOOST_{lvl}{macro}",
-            connectors=[c for c in [connector] if c is not None],
+            connectors=connectors,
             terminator=(f"<< {namespace}::{term}" if term else ""),
         )
         for lvl, term in (("WARN", "flaky"), ("CHECK", ""), ("REQUIRE", "asserted"))
-        for macro, connector in [("", None), ("_EQUAL", "==")]
+        for macro, connectors in [
+            ("", []),
+            ("_EQUAL", ["=="]),
+        ]
     ]
