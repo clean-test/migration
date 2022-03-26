@@ -106,5 +106,6 @@ def load_handlers(namespace: str):
         for macro, connectors in [
             ("", []),
             ("_EQUAL", ["=="]),
+            ("_MESSAGE", ["<<"]),
         ]
     ]
