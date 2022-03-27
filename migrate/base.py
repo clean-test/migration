@@ -398,7 +398,6 @@ def lift(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Lin
     _display_tree(root=tree)
     tokens = _collect_tokens(root=tree)
     lines = _reconstruct_lines(tokens=tokens, original=lines)
-    # TODO: alter toplevel commas according to connectors
 
     # note: we currently assume there are no comments contained.
     lines[0].content = f"{kwargs['namespace']}::expect({lines[0].content}"
