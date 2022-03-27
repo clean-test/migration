@@ -363,7 +363,6 @@ def _insert_connectors(root: Node, connectors: list[str]) -> Node:
 
 def _normalize_connectors(connectors: list[str]):
     """Ensure to include the ::expect-ending braces in the first << connector."""
-    connectors = [f" {c.strip()} " for c in connectors]
     matches = [i for i, c in enumerate(connectors) if "<<" in c]
     if matches:
         connectors[matches[0]] = f"){connectors[matches[0]]}"
@@ -377,22 +376,22 @@ def _connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list
     print(f'  Tokens: {"~".join(f"{{{t.content}-{t.kind}}}" for t in tokens)}')
     tree = _load_tree(tokens=tokens)
     _display_tree(root=tree)
-    expect_is_internally_closed, connectors = _normalize_connectors(connectors)
     tree = _insert_connectors(root=tree, connectors=connectors)
     print("with connectors")
     _display_tree(root=tree)
-    return tree, expect_is_internally_closed
+    return tree
 
 
 def connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Line]:
-    tree, _ = _connect(lines=lines, connectors=connectors)
+    tree = _connect(lines=lines, connectors=connectors)
     tokens = _collect_tokens(root=tree)
     lines = _reconstruct_lines(tokens=tokens, original=lines)
     return lines
 
 
 def lift(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Line]:
-    tree, expect_is_internally_closed = _connect(lines=lines, connectors=connectors)
+    expect_is_internally_closed, connectors = _normalize_connectors(connectors)
+    tree = _connect(lines=lines, connectors=connectors)
     if tree.kind not in {Node.Kind.raw, Node.Kind.call}:  # at least two nodes in total
         tree = _lift_tree(root=tree, **kwargs)
     print("lifted")

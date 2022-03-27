@@ -64,7 +64,7 @@ class EqualCollectionExpectationConverter(base.MacroCallConverter):
         return m.group()[:-1] if m else None
 
     def handle_macro(self, macro: str, lines: list[base.Line], **kwargs) -> list[base.Line]:
-        lines = base.connect(lines=lines, connectors=[",", "}, std::ranges::subrange{", ","], **kwargs)
+        lines = base.connect(lines=lines, connectors=[", ", "}, std::ranges::subrange{", ", "], **kwargs)
         lvl = self._rx_macro_start.match(f"{macro}(").group("lvl")
         lines[0].content = f"BOOST_{lvl}_EQUAL(std::ranges::equal(std::ranges::subrange{{{lines[0].content}"
         lines[-1].content = f"{lines[-1].content}}}));"
@@ -105,7 +105,7 @@ def load_handlers(namespace: str):
         for lvl, term in (("WARN", "flaky"), ("CHECK", ""), ("REQUIRE", "asserted"))
         for macro, connectors in [
             ("", []),
-            ("_EQUAL", ["=="]),
-            ("_MESSAGE", ["<<"]),
+            ("_EQUAL", [" == "]),
+            ("_MESSAGE", [" << "]),
         ]
     ]

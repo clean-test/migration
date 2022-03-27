@@ -7,8 +7,8 @@ from migrate import base
 
 
 testdata_connect = [
-    ("a, b", "a << b", ["<<"]),
-    ("a, b, c, d", "a, b}, X{c, d", [",", "}, X{", ", "]),
+    ("a, b", "a << b", [" << "]),
+    ("a, b, c, d", "a, b}, X{c, d", [", ", "}, X{", ", "]),
 ]
 
 
@@ -21,15 +21,15 @@ testdata_lift = [
     ("foo()", "ct::expect(foo());", {}),
     ("true and foo()", "ct::expect(ct::lift(true) and foo());", {}),
     ("not foo()", "ct::expect(not ct::lift(foo()));", {}),
-    ('not not foo(), "hi" << you()', 'ct::expect(not not ct::lift(foo())) << "hi" << you();', {"connectors": ["<<"]}),
+    ('not not foo(), "hi" << you()', 'ct::expect(not not ct::lift(foo())) << "hi" << you();', {"connectors": [" << "]}),
     ("not normal()", "ct::expect(not ct::lift(normal()));", {}),
     ('n::f(a, "x") == "x"', 'ct::expect(ct::lift(n::f(a, "x")) == "x");', {}),
     ('f(a, "x") == "x"', 'ct::expect(ct::lift(f(a, "x")) == "x");', {}),
     ("f(g(h()))", "ct::expect(f(g(h())));", {}),
-    ("a, 2", "ct::expect(a == 2_i);", {"connectors": ["=="]}),
+    ("a, 2", "ct::expect(a == 2_i);", {"connectors": [" == "]}),
     ("!f()", "ct::expect(!ct::lift(f()));", {}),
     ("a != b", "ct::expect(ct::lift(a) != b);", {}),
-    ("a, message", "ct::expect(a) << message);", {"connectors": ["<<"]}),
+    ("a, message", "ct::expect(a) << message;", {"connectors": [" << "]}),
 ]
 
 
