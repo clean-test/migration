@@ -80,7 +80,7 @@ class ExpectationConverter(base.MacroCallConverter):
 
     def handle_macro(self, macro: str, lines: list[base.Line], **kwargs) -> list[base.Line]:
         lines = base.lift(lines=lines, connectors=self._connectors, **kwargs)
-        lines[-1].content = f"{lines[-1].content[:-1]} {self._terminator.strip()};"
+        lines[-1].content = f"{lines[-1].content[:-1]}{self._terminator};"
         return lines
 
     def check_start(self, content: str) -> str:
@@ -100,7 +100,7 @@ def load_handlers(namespace: str):
         ExpectationConverter(
             f"BOOST_{lvl}{macro}",
             connectors=connectors,
-            terminator=(f"<< {namespace}::{term}" if term else ""),
+            terminator=(f" << {namespace}::{term}" if term else ""),
         )
         for lvl, term in (("WARN", "flaky"), ("CHECK", ""), ("REQUIRE", "asserted"))
         for macro, connectors in [
