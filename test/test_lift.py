@@ -30,6 +30,7 @@ testdata_lift = [
     ("!f()", "ct::expect(!ct::lift(f()));", {}),
     ("a != b", "ct::expect(ct::lift(a) != b);", {}),
     ("a, message", "ct::expect(a) << message;", {"connectors": [" << "]}),
+    ("""u == u"123" """, """ct::expect(ct::lift(u) == u"123");""", {}),
 ]
 
 

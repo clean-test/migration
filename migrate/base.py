@@ -126,7 +126,7 @@ class Token:
 def _tokenize(lines: list[Line]) -> list[Token]:
     # TODO: handling of ternary (=> some sort of if then else?)
     splitters = [
-        (r"""(?<!\\)"(([^"]|(?<=\\)")*)(?<!\\)"|(?<!\\)'([^']|\\.)(?<!\\)'""", Token.Kind.string_literal),
+        (r"""(u8?|U|L)?(?<!\\)"(([^"]|(?<=\\)")*)(?<!\\)"|(?<!\\)'([^']|\\.)(?<!\\)'""", Token.Kind.string_literal),
         (
             r"(\s+|\b|(^|(?<=\W))(?=\W))(not|&&|and|\|\||or|!=?|==|<<|>>|(?<!\+)\+(?!\+)|(?<!-)-(?!-)|[!*/%,~])(\s+|\b|(?<=\W)($|(?=\W)))",
             Token.Kind.operator,
