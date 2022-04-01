@@ -11,7 +11,7 @@ from . import base
 
 
 class SuiteConverter(base.SingleLineConverter):
-    _rx_suite_begin = re.compile("^BOOST_AUTO_TEST_SUITE\((?P<name>\w+)\)$")
+    _rx_suite_begin = re.compile(r"^BOOST_AUTO_TEST_SUITE\((?P<name>\w+)\)$")
 
     def handle_line(self, line: base.Line, namespace: str, **kwargs) -> base.Line:
         m = SuiteConverter._rx_suite_begin.match(line.content)
@@ -29,7 +29,7 @@ class SuiteConverter(base.SingleLineConverter):
 
 
 class CaseConverter(base.SingleLineConverter):
-    _rx_case_begin = re.compile("BOOST_AUTO_TEST_CASE\((?P<name>[^,)]+)(?P<extra>,[^)]+)?\)")
+    _rx_case_begin = re.compile(r"BOOST_AUTO_TEST_CASE\((?P<name>[^,)]+)(?P<extra>,[^)]+)?\)")
 
     def __init__(self):
         self._finisher = None
@@ -57,7 +57,7 @@ class CaseConverter(base.SingleLineConverter):
 
 
 class EqualCollectionExpectationConverter(base.MacroCallConverter):
-    _rx_macro_start = re.compile("BOOST_(?P<lvl>WARN|CHECK|REQUIRE)_EQUAL_COLLECTIONS\(")
+    _rx_macro_start = re.compile(r"BOOST_(?P<lvl>WARN|CHECK|REQUIRE)_EQUAL_COLLECTIONS\(")
 
     def check_start(self, content: str) -> str:
         m = self._rx_macro_start.match(content)
@@ -74,7 +74,7 @@ class EqualCollectionExpectationConverter(base.MacroCallConverter):
 class ExpectationConverter(base.MacroCallConverter):
     def __init__(self, macro, *, connectors=[], terminator: str = ""):
         super().__init__()
-        self._rx_macro = re.compile(f"{macro}\(")
+        self._rx_macro = re.compile(rf"{macro}\(")
         self._connectors = connectors
         self._terminator = terminator
 
@@ -90,7 +90,7 @@ class ExpectationConverter(base.MacroCallConverter):
 
 def load_handlers(namespace: str):
     return [
-        base.ReFilterHandler({re.compile('^#include\s+[<"]boost/test')}),
+        base.ReFilterHandler({re.compile(r'^#include\s+[<"]boost/test')}),
         base.FilterHandler(forbidden={"#define BOOST_TEST_MAIN"}),
         SuiteConverter(),
         CaseConverter(),
