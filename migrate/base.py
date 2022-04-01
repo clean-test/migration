@@ -382,14 +382,25 @@ def _connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list
     return tree
 
 
+def _partition_empty_prefix(lines: list[Line]) -> (list[Line], list[Line]):
+    empty_lines = [l if not l.content.strip() else None for l in lines]
+    empty_filtered = [l for l in empty_lines if l is not None]
+
+    empty_prefix = [l for l, o in zip(empty_lines, empty_filtered) if l == o]
+    return empty_prefix, lines[len(empty_prefix) :]
+
+
 def connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Line]:
+    prefix, lines = _partition_empty_prefix(lines=lines)
     tree = _connect(lines=lines, connectors=connectors)
     tokens = _collect_tokens(root=tree)
-    lines = _reconstruct_lines(tokens=tokens, original=lines)
+    lines = prefix + _reconstruct_lines(tokens=tokens, original=lines)
     return lines
 
 
 def lift(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Line]:
+    prefix, lines = _partition_empty_prefix(lines=lines)
+
     expect_is_internally_closed, connectors = _normalize_connectors(connectors)
     tree = _connect(lines=lines, connectors=connectors)
     lift_decider = tree if tree.kind != Node.Kind.binary or ")" not in tree.tokens[-1].content else tree.children[0]
@@ -398,7 +409,7 @@ def lift(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Lin
     print("lifted")
     _display_tree(root=tree)
     tokens = _collect_tokens(root=tree)
-    lines = _reconstruct_lines(tokens=tokens, original=lines)
+    lines = prefix + _reconstruct_lines(tokens=tokens, original=lines)
 
     # note: we currently assume there are no comments contained.
     lines[0].content = f"{kwargs['namespace']}::expect({lines[0].content}"
