@@ -134,7 +134,10 @@ class Token:
 def _tokenize(lines: list[Line]) -> list[Token]:
     # TODO: handling of ternary (=> some sort of if then else?)
     splitters = [
-        (r"""(u8?|U|L)?(?<!\\)"(([^"]|(?<=\\)")*)(?<!\\)"|(?<!\\)'([^']|\\.)(?<!\\)'""", Token.Kind.string_literal),
+        (
+            r"""(u8?|U|L)?(?<!\\)"(([^"]|(?<=\\)")*)(?<!\\)"(sv?|_\w+)?|(?<!\\)'([^']|\\.)(?<!\\)'""",
+            Token.Kind.string_literal,
+        ),
         (
             r"(\s+|\b|(^|(?<=\W))(?=\W))(not|&&|and|\|\||or|!=?|==|<<|>>|(?<!\+)\+(?!\+)|(?<!-)-(?!-)|[!*/%,~])(\s+|\b|(?<=\W)($|(?=\W)))",
             Token.Kind.operator,
@@ -261,9 +264,6 @@ def _load_tree(tokens: list[Token]) -> Node:
         else:
             assert False, f"Unsupported token kind: {token}"
     return root
-
-
-# TODO: parse string / view literals with suffixes (s / sv)
 
 
 def _lift_node(node: Node, namespace: str, **kwargs):
