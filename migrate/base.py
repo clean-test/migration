@@ -226,7 +226,11 @@ def _load_tree(tokens: list[Token]) -> Node:
     }
     for token in tokens:
         if token.kind in kind_map:
-            last = make_node(parent=last, kind=kind_map[token.kind], precedence=0, tokens=[token])
+            kind = kind_map[token.kind]
+            if last and kind == Node.Kind.raw and last and last.kind == Node.Kind.raw:  # append to last
+                last.tokens.append(token)
+            else:  # start a new last node
+                last = make_node(parent=last, kind=kind_map[token.kind], precedence=0, tokens=[token])
         elif token.kind == Token.Kind.end:
             while last.kind not in {Node.Kind.scope, Node.Kind.call} or len(last.tokens) >= 2:
                 last = last.parent
@@ -345,7 +349,7 @@ def _collect_tokens(root: Node) -> list[Token]:
         child_tokens = [_collect_tokens(root=child) for child in root.children]
         return [root.tokens[0]] + [t for ts in child_tokens for t in ts] + [root.tokens[1]]
     if root.kind == Node.Kind.raw:
-        return [root.tokens[0]]
+        return root.tokens
     if root.kind == Node.Kind.unary:
         return [root.tokens[0]] + _collect_tokens(root=root.children[0])
     if root.kind == Node.Kind.binary:
