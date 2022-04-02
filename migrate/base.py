@@ -25,12 +25,20 @@ class Line:
 _rx_split_line = re.compile(r"^(?P<indent>\s*)(?P<content>([^\s].*)?)$")
 
 
+def split_lines(text: str) -> list[Line]:
+    return [Line(**_rx_split_line.match(l).groupdict()) for l in text.splitlines()]
+
+
 def load_lines(path: pathlib.Path):
-    return [Line(**_rx_split_line.match(l).groupdict()) for l in path.read_text().splitlines()]
+    return split_lines(path.read_text())
+
+
+def join_lines(lines: list[Line]) -> str:
+    return "".join(f"{l.indent}{l.content}\n" for l in lines)
 
 
 def write_lines(lines: list, path: pathlib.Path):
-    path.write_text("".join(f"{l.indent}{l.content}\n" for l in lines))
+    path.write_text(join_lines(lines=lines))
 
 
 @dataclass

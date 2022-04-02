@@ -38,4 +38,4 @@ testdata_lift = [
 def test_lift(case, expected, config):
     kwargs = {"namespace": "ct"}
     kwargs.update(config)
-    assert base.lift(lines=[base.Line(indent="", content=case)], **kwargs)[0].content == expected
+    assert base.lift(lines=base.split_lines(case), **kwargs) == base.split_lines(expected)
