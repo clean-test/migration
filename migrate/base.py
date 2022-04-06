@@ -139,7 +139,7 @@ def _tokenize(lines: list[Line]) -> list[Token]:
             Token.Kind.string_literal,
         ),
         (
-            r"(\s+|\b|(^|(?<=\W))(?=\W))(not|&&|and|\|\||or|!=?|==|<<|>>|(?<!\+)\+(?!\+)|(?<!-)-(?!-)|[!*/%,~])(\s+|\b|(?<=\W)($|(?=\W)))",
+            r"(\s+|\b|(^|(?<=\W))(?=\W))(not|&&|and|\|\||or|!=?|==|<<|>>|(?<!\+)\+(?!\+)|(?<!-)-(?!-)|[!*/%,~.]|->)(\s+|\b|(?<=\W)($|(?=\W)))",
             Token.Kind.operator,
         ),
         (r"\w[\w0-9_<>\.:]*\s*[\({]", Token.Kind.call_begin),
@@ -187,6 +187,8 @@ def compute_precedence(token: Token, unary: bool) -> int:
     if unary and operator in {"+", "-", "~", "!", "not"}:
         return 3
     return {
+        ".": 2,
+        "->": 2,
         "*": 4,
         "/": 4,
         "%": 4,
@@ -272,20 +274,47 @@ def _load_tree(tokens: list[Token]) -> Node:
     return root
 
 
+def _all_tokens(root: Node):
+    for t in root.tokens:
+        yield t
+    for c in root.children:
+        _all_tokens(root=c)
+
+
 def _lift_node(node: Node, namespace: str, **kwargs):
-    # Kind = Enum("Kind", ["unary", "binary", "scope", "call", "raw"])
-    # Kind = Enum("Kind", ["string_literal", "operator", "call_begin", "parenthesis_begin", "end", "unknown"])
-    lifted = False
     if node.kind == Node.Kind.raw and len(node.tokens) == 1:
         token = node.tokens[0]
         pref = _preferential_lift_number(token.content)
         if pref:
             token.content = pref
-            lifted = True
+            return
 
-    if not lifted:
-        node.tokens[0].content = f"{namespace}::lift({node.tokens[0].content}"
-        node.tokens[-1].content += ")"
+    assert node.parent is not None
+    # Note: mutate node (instead of creating a new call node) to keep roots valid.
+    new_node = Node(
+        parent=node,
+        kind=node.kind,
+        precedence=node.precedence,
+        tokens=node.tokens,
+        children=node.children,
+        lifting_barrier=node.lifting_barrier,
+    )
+    for c in new_node.children:
+        c.parent = new_node
+
+    call_start_line_idx, call_end_line_idx = (float("inf"), float("-inf"))
+    for t in _all_tokens(root=new_node):
+        call_start_line_idx = min(call_start_line_idx, t.line_idx)
+        call_end_line_idx = max(call_end_line_idx, t.line_idx)
+
+    node.kind = Node.Kind.call
+    node.precedence = Node(parent=None, kind=Node.Kind.call).precedence
+    node.tokens = [
+        Token(content=f"{namespace}::lift(", kind=Token.Kind.call_begin, line_idx=call_start_line_idx),
+        Token(content=")", kind=Token.Kind.end, line_idx=call_end_line_idx),
+    ]
+    node.children = [new_node]
+    node.lifting_barrier = True
 
 
 _preferential_lift_number_handlers = [
@@ -310,15 +339,21 @@ def _supports_preferential_lifting(node: Node) -> bool:
     return len(node.tokens) == 1 and _preferential_lift_number(node.tokens[0].content) is not None
 
 
+def _is_member_access(node: Node) -> bool:
+    return node.kind == Node.Kind.binary and any(t.content.strip() in {".", "->"} for t in node.tokens)
+
+
 def _is_automatically_lifted(node: Node) -> bool:
-    return node.kind in {Node.Kind.unary, Node.Kind.binary, Node.Kind.scope}
+    return node.kind in {Node.Kind.unary, Node.Kind.scope} or (
+        node.kind == Node.Kind.binary and not _is_member_access(node)
+    )
 
 
 def _lift_tree(root: Node, **kwargs) -> Node:
     num_auto_lifted_children = 0
     children = root.children if not root.lifting_barrier else root.children[:1]
     for child in children:
-        if _is_automatically_lifted(node=child):
+        if _is_automatically_lifted(node=child) and not child.lifting_barrier:
             _lift_tree(root=child, **kwargs)
             num_auto_lifted_children += 1
 
@@ -327,7 +362,7 @@ def _lift_tree(root: Node, **kwargs) -> Node:
             # TODO: only if literals are enabled
             c
             for c in children
-            if _supports_preferential_lifting(node=c) and not _is_automatically_lifted(node=c)
+            if _supports_preferential_lifting(node=c) and not _is_automatically_lifted(node=c) and not c.lifting_barrier
         ]
         _lift_node(node=(lifting_preference + children)[0], **kwargs)
     return root
@@ -367,7 +402,7 @@ def _insert_connectors(root: Node, connectors: list[str]) -> Node:
     if connectors and root.kind == Node.Kind.binary and root.tokens[-1].content.strip() == ",":
         root.tokens[-1].content = connectors[0]
         if "<<" in connectors[0]:
-            root.lifting_barrier = True
+            root.children[1].lifting_barrier = True
         _insert_connectors(root=root.children[1], connectors=connectors[1:])
     return root
 

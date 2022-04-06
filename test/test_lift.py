@@ -45,6 +45,7 @@ testdata_lift = [
         z);""",
         {},
     ),
+    ("f().size(), g()", "ct::expect(ct::lift(f().size()) == g());", {"connectors": [" == "]}),
 ]
 
 
