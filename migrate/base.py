@@ -449,8 +449,11 @@ def lift(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Lin
 
     expect_is_internally_closed, connectors = _normalize_connectors(connectors)
     tree = _connect(lines=lines, connectors=connectors)
+    # The brace is included for <<-connectors to close the ct::expect that will be pre-pended below.
     lift_decider = tree if tree.kind != Node.Kind.binary or ")" not in tree.tokens[-1].content else tree.children[0]
-    if lift_decider.kind not in {Node.Kind.raw, Node.Kind.call}:  # at least two nodes in total
+    if lift_decider.kind not in {Node.Kind.raw, Node.Kind.call} and not _is_member_access(
+        lift_decider
+    ):  # at least two nodes in total
         tree = _lift_tree(root=tree, **kwargs)
     print("lifted")
     _display_tree(root=tree)
