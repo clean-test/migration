@@ -216,6 +216,8 @@ def _load_tree(tokens: list[Token]) -> Node:
             node.parent.children.append(node)
         else:
             root = node
+        for c in node.children:
+            c.parent = node
         return node
 
     kind_map = {
@@ -230,7 +232,7 @@ def _load_tree(tokens: list[Token]) -> Node:
             if last and kind == Node.Kind.raw and last and last.kind == Node.Kind.raw:  # append to last
                 last.tokens.append(token)
             else:  # start a new last node
-                last = make_node(parent=last, kind=kind_map[token.kind], precedence=0, tokens=[token])
+                last = make_node(parent=last, kind=kind, precedence=0, tokens=[token])
         elif token.kind == Token.Kind.end:
             while last.kind not in {Node.Kind.scope, Node.Kind.call} or len(last.tokens) >= 2:
                 last = last.parent
@@ -331,15 +333,12 @@ def _lift_tree(root: Node, **kwargs) -> Node:
     return root
 
 
-def _display_tree(root: Node, highlight=None, depth=0):
-    if highlight is None:
-        highlight = set()
-    h = " ***" if any(root == h for h in highlight) else ""
+def _display_tree(root: Node, depth=0):
     if root is not None:
         print(
-            f'{" " * (2 * depth + 3)} {root.precedence:02d} {root.kind} {" ".join(t.content for t in root.tokens)}{h}'
+            f'{" " * (2 * depth + 3)} {root.precedence:02d} {root.kind} {" ".join(t.content for t in root.tokens)}  [{hex(id(root))} -> {hex(id(root.parent)) if root.parent is not None else None}]'
         )
-        ignored = [_display_tree(c, highlight, depth=depth + 1) for c in root.children]
+        ignored = [_display_tree(c, depth=depth + 1) for c in root.children]
     else:
         print("   None")
 
