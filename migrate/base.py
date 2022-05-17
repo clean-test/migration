@@ -143,8 +143,8 @@ def _tokenize(lines: list[Line]) -> list[Token]:
             Token.Kind.operator,
         ),
         (r"\w[\w0-9_<>\.:]*\s*[\({]", Token.Kind.call_begin),
-        (r"\(", Token.Kind.parenthesis_begin),
-        (r"\)|}", Token.Kind.end),
+        (r"\(|\[", Token.Kind.parenthesis_begin),
+        (r"\)|}|\]", Token.Kind.end),
     ]
     result = [Token(content=line.content, line_idx=l, kind=Token.Kind.unknown) for l, line in enumerate(lines)]
     for regex, kind in splitters:
@@ -178,6 +178,8 @@ class Node:
     tokens: list[Token] = field(default_factory=list)
     children: list["Node"] = field(default_factory=list)
     lifting_barrier: bool = False
+    # Whether enclosing kinds (scope / call) are already closed or currently wait for their closing parenthesis
+    is_complete: bool = True
 
 
 def compute_precedence(token: Token, unary: bool) -> int:
@@ -231,19 +233,29 @@ def _load_tree(tokens: list[Token]) -> Node:
     for token in tokens:
         if token.kind in kind_map:
             kind = kind_map[token.kind]
-            if last and kind == Node.Kind.raw and last and last.kind == Node.Kind.raw:  # append to last
+            if last and kind == Node.Kind.raw and last.kind == Node.Kind.raw:  # append to last
                 last.tokens.append(token)
+            if (
+                last and kind == Node.Kind.scope and last.kind not in {Node.Kind.unary, Node.Kind.binary}
+            ):  # chained calls
+                last.tokens = list(_all_tokens(last)) + [token]
+                last.kind = Node.Kind.call
+                last.precedence = 0
+                last.is_complete = False
             else:  # start a new last node
-                last = make_node(parent=last, kind=kind, precedence=0, tokens=[token])
+                last = make_node(
+                    parent=last, kind=kind, precedence=0, tokens=[token], is_complete=(kind == Node.Kind.raw)
+                )
         elif token.kind == Token.Kind.end:
-            while last.kind not in {Node.Kind.scope, Node.Kind.call} or len(last.tokens) >= 2:
+            while last.kind not in {Node.Kind.scope, Node.Kind.call} or last.is_complete:
                 last = last.parent
             last.tokens.append(token)
+            last.is_complete = True
         elif token.kind == Token.Kind.operator:
             is_unary = (
                 last is None
                 or last.kind in {Node.Kind.unary, Node.Kind.binary}
-                or (last.kind in {Node.Kind.scope, Node.Kind.call} and len(last.tokens) == 1)
+                or (last.kind in {Node.Kind.scope, Node.Kind.call} and not last.is_complete)
             )
             precedence = compute_precedence(token, is_unary)
 
@@ -381,7 +393,7 @@ def _display_tree(root: Node, depth=0):
 def _collect_tokens(root: Node) -> list[Token]:
     if root.kind in {Node.Kind.scope, Node.Kind.call}:
         child_tokens = [_collect_tokens(root=child) for child in root.children]
-        return [root.tokens[0]] + [t for ts in child_tokens for t in ts] + [root.tokens[1]]
+        return root.tokens[:-1] + [t for ts in child_tokens for t in ts] + root.tokens[-1:]
     if root.kind == Node.Kind.raw:
         return root.tokens
     if root.kind == Node.Kind.unary:
