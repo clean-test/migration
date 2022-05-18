@@ -263,7 +263,7 @@ def _load_tree(tokens: list[Token]) -> Node:
             while (
                 parent is not None
                 and parent.precedence < precedence
-                and (parent.kind != Node.Kind.call or len(parent.tokens) > 1)
+                and (parent.kind not in {Node.Kind.call, Node.Kind.scope} or parent.is_complete)
             ):
                 parent = parent.parent
 
