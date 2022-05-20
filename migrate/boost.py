@@ -37,8 +37,7 @@ class CaseConverter(base.SingleLineConverter):
     def handle_line(self, line: base.Line, namespace: str, use_literals: bool, **kwargs) -> base.Line:
         if self._finisher is not None:
             assert not line.content or self._finisher.level <= line.level
-            if line.level == self._finisher.level and not line.content.startswith("{") and line.content:
-                assert line.content.startswith("}")
+            if line.level == self._finisher.level and not line.content.startswith("{") and line.content.startswith("}"):
                 line.content = self._finisher.content + line.content[1:]
                 self._finisher = None
             return line
