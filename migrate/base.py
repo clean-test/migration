@@ -148,7 +148,7 @@ def _tokenize(lines: list[Line]) -> list[Token]:
             Token.Kind.operator,
         ),
         (r"\w[\w0-9_<>\.:]*\s*[\({]", Token.Kind.call_begin),
-        (r"\(|\[", Token.Kind.parenthesis_begin),
+        (r"\(|{|\[", Token.Kind.parenthesis_begin),
         (r"\)|}|\]", Token.Kind.end),
     ]
     result = [Token(content=line.content, line_idx=l, kind=Token.Kind.unknown) for l, line in enumerate(lines)]
@@ -245,7 +245,10 @@ def _load_tree(tokens: list[Token]) -> Node:
             if last and kind == Node.Kind.raw and last.kind == Node.Kind.raw:  # append to last
                 last.tokens.append(token)
             if (
-                last and kind == Node.Kind.scope and last.kind not in {Node.Kind.unary, Node.Kind.binary}
+                last
+                and kind == Node.Kind.scope
+                and last.kind not in {Node.Kind.unary, Node.Kind.binary}
+                and last.is_complete
             ):  # chained calls
                 last.tokens = list(_all_tokens(last)) + [token]
                 last.kind = Node.Kind.call

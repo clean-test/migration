@@ -55,6 +55,7 @@ testdata_lift = [
     ("c2->isError()", "ct::expect(c2->isError());", {}),
     ("duration(t, act) > ms::zero()", "ct::expect(ct::lift(duration(t, act)) > ms::zero());", {}),
     ("!check(x, *user)", "ct::expect(!ct::lift(check(x, *user)));", {}),
+    ('f({}, {"nt"})', 'ct::expect(f({}, {"nt"}));', {}),
 ]
 
 
