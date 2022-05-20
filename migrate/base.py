@@ -69,6 +69,8 @@ class MultiLineConverter:
 
 
 class MacroCallConverter(MultiLineConverter):
+    _rx_termination = re.compile(r"\);(?P<comment>\s*(//.*|\\))?$")
+
     def __init__(self):
         self._buffer = []
         self._macro = None
@@ -85,10 +87,13 @@ class MacroCallConverter(MultiLineConverter):
                 line.content = line.content[len(self._macro) + 1 :]
             self._buffer.append(line)
             result = []
-        if self._buffer and self._buffer[-1].content.endswith(");"):
+        m = self._rx_termination.search(self._buffer[-1].content) if self._buffer else None
+        if m:
             line = self._buffer[-1]
-            line.content = line.content[: -len(");")]
+            line.content = line.content[: m.start()]
             result = self.handle_macro(macro=self._macro, lines=self._buffer, **kwargs)
+            comment = m.group("comment")
+            result[-1].content += comment if comment else ""
             self._buffer = []
             self._macro = None
         return result
