@@ -52,6 +52,9 @@ testdata_lift = [
     ("x.f().f()(2), g()", "ct::expect(ct::lift(x.f().f()(2)) == g());", {"connectors": [" == "]}),
     ("(e.x[i] == c.x[i])", "ct::expect((ct::lift(e.x[i]) == c.x[i]));", {}),
     ("(e.x[i].b == c.x[i].b)", "ct::expect((ct::lift(e.x[i].b) == c.x[i].b));", {}),
+    ("c2->isError()", "ct::expect(c2->isError());", {}),
+    ("duration(t, act) > ms::zero()", "ct::expect(ct::lift(duration(t, act)) > ms::zero());", {}),
+
 ]
 
 
