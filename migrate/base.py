@@ -276,11 +276,13 @@ def _load_tree(tokens: list[Token]) -> Node:
             ):
                 parent = parent.parent
 
-            if parent:
+            if not parent:
+                children = [r for r in [root] if r]
+            elif is_unary:
+                children = []
+            else:
                 children = [parent.children[-1]] if parent.children else []
                 parent.children = parent.children[:-1]
-            else:
-                children = [r for r in [root] if r]
             assert len(children) < 2
 
             last = make_node(

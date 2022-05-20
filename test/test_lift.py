@@ -54,7 +54,7 @@ testdata_lift = [
     ("(e.x[i].b == c.x[i].b)", "ct::expect((ct::lift(e.x[i].b) == c.x[i].b));", {}),
     ("c2->isError()", "ct::expect(c2->isError());", {}),
     ("duration(t, act) > ms::zero()", "ct::expect(ct::lift(duration(t, act)) > ms::zero());", {}),
-
+    ("!check(x, *user)", "ct::expect(!ct::lift(check(x, *user)));", {}),
 ]
 
 
