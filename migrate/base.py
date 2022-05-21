@@ -118,9 +118,17 @@ class IncludeAdder:
         return lines
 
     def _include_position(self, lines):
+        in_multiline_comment = False
         for n, line in enumerate(lines):
-            if line.content and not line.content.startswith("#include"):
+            in_multiline_comment = in_multiline_comment or line.content.startswith("/*")
+            if (
+                line.content
+                and not in_multiline_comment
+                and not line.content.startswith("//")
+                and not line.content.startswith("#include")
+            ):
                 return n
+            in_multiline_comment = in_multiline_comment and not line.content.endswith("*/")
         return 0
 
 

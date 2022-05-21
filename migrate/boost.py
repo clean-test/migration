@@ -5,10 +5,6 @@ import re
 
 from . import base
 
-# TODO: tests
-# TODO: lifiting of literls
-# TODO: licenses
-
 
 class SuiteConverter(base.SingleLineConverter):
     _rx_suite_begin = re.compile(r"^BOOST_AUTO_TEST_SUITE\((?P<name>\w+)\)$")
