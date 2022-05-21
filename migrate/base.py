@@ -136,27 +136,51 @@ class Token:
     kind: Kind
 
 
+def _strip_templates(content: str) -> str:
+    """(Recursively) replace template arguments by #; preserves length."""
+
+    def replacement(m) -> str:
+        return "#" * len(m.group())
+
+    template_argument = r"\w[0-9\w_:#&]*"
+    rx = rf"<\s*{template_argument}(\s,\s*{template_argument})*>"
+
+    previous = None
+    while previous != content:
+        previous = content
+        content = re.sub(rx, replacement, content)
+    return content
+
+
+def _identity(something):
+    return something
+
+
 def _tokenize(lines: list[Line]) -> list[Token]:
     # TODO: handling of ternary (=> some sort of if then else?)
     splitters = [
         (
             r"""(u8?|U|L)?(?<!\\)"(([^"]|(?<=\\)")*)(?<!\\)"(sv?|_\w+)?|(?<!\\)'([^']|\\.)(?<!\\)'""",
             Token.Kind.string_literal,
+            _identity,
         ),
         (
-            r"(\s+|\b|(^|(?<=\W))(?=\W))(not|&&|and|\|\||or|!=?|==|<<|>>|(?<!\+)\+(?!\+)|(?<!-)-(?![->])|[<>!*/%,~.]|->)(\s+|\b|(?<=\W)($|(?=\W)))",
+            r"(\s+|\b|(^|(?<=\W))(?=\W))"
+            r"(not|&&|and|\|\||or|!=?|==|<<|>>|(?<!\+)\+(?!\+)|(?<!-)-(?![->])|[<>!*/%,~.]|->)"
+            r"(\s+|\b|(?<=\W)($|(?=\W)))",
             Token.Kind.operator,
+            _strip_templates,
         ),
-        (r"\w[\w0-9_<>\.:]*\s*[\({]", Token.Kind.call_begin),
-        (r"\(|{|\[", Token.Kind.parenthesis_begin),
-        (r"\)|}|\]", Token.Kind.end),
+        (r"\w[\w0-9_<>\.:]*\s*[\({]", Token.Kind.call_begin, _strip_templates),
+        (r"\(|{|\[", Token.Kind.parenthesis_begin, _strip_templates),
+        (r"\)|}|\]", Token.Kind.end, _strip_templates),
     ]
     result = [Token(content=line.content, line_idx=l, kind=Token.Kind.unknown) for l, line in enumerate(lines)]
-    for regex, kind in splitters:
+    for regex, kind, normalize in splitters:
         splits = []
         for t in result:
             while True:
-                m = re.search(regex, t.content)
+                m = re.search(regex, normalize(t.content))
                 if not m or t.kind != Token.Kind.unknown:
                     break
                 start, end = m.span()

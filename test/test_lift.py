@@ -56,6 +56,7 @@ testdata_lift = [
     ("duration(t, act) > ms::zero()", "ct::expect(ct::lift(duration(t, act)) > ms::zero());", {}),
     ("!check(x, *user)", "ct::expect(!ct::lift(check(x, *user)));", {}),
     ('f({}, {"nt"})', 'ct::expect(f({}, {"nt"}));', {}),
+    ("get<Counter>() == Counter{asserted}", "ct::expect(ct::lift(get<Counter>()) == Counter{asserted});", {}),
 ]
 
 
