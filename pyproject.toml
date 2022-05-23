@@ -10,6 +10,8 @@ license = "BSL-1.0"
 
 [tool.poetry.dependencies]
 python = ">=3.8"
+coloredlogs = "^15.0.1"
+colorama = "^0.4.4"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.4"
@@ -25,3 +27,7 @@ include = 'gen/.*\.py$'
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+log_cli_level = "0"
+log_format = "[%(levelno)02d] %(message)s"
