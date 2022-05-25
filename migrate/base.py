@@ -512,19 +512,28 @@ def connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[
 
 
 def lift(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Line]:
-    prefix, lines = _partition_empty_prefix(lines=lines)
+    expect_is_internally_closed = False
+    try:
+        prefix, lines = _partition_empty_prefix(lines=lines)
 
-    expect_is_internally_closed, connectors = _normalize_connectors(connectors)
-    tree = _connect(lines=lines, connectors=connectors)
-    # The brace is included for <<-connectors to close the ct::expect that will be pre-pended below.
-    lift_decider = tree if tree.kind != Node.Kind.binary or ")" not in tree.tokens[-1].content else tree.children[0]
-    if lift_decider.kind not in {Node.Kind.raw, Node.Kind.call} and not _is_member_access(
-        lift_decider
-    ):  # at least two nodes in total
-        tree = _lift_tree(root=tree, **kwargs)
-    _display_tree(root=tree, title="Lifted Tree", level="trace")
-    tokens = _collect_tokens(root=tree)
-    lines = prefix + _reconstruct_lines(tokens=tokens, original=lines)
+        expect_is_internally_closed, connectors = _normalize_connectors(connectors)
+        tree = _connect(lines=lines, connectors=connectors)
+        # The brace is included for <<-connectors to close the ct::expect that will be pre-pended below.
+        lift_decider = tree if tree.kind != Node.Kind.binary or ")" not in tree.tokens[-1].content else tree.children[0]
+        if lift_decider.kind not in {Node.Kind.raw, Node.Kind.call} and not _is_member_access(
+            lift_decider
+        ):  # at least two nodes in total
+            tree = _lift_tree(root=tree, **kwargs)
+        _display_tree(root=tree, title="Lifted Tree", level="trace")
+        tokens = _collect_tokens(root=tree)
+        lines = prefix + _reconstruct_lines(tokens=tokens, original=lines)
+    except Exception as xcp:
+        if log.is_active("trace"):
+            log.exception(xcp)
+        log.verbose(
+            "Failed to lift the following expression, expecting a black box:\n"
+            f"  {' '.join(l.content for l in lines)}",
+        )
 
     # note: we currently assume there are no comments contained.
     lines[0].content = f"{kwargs['namespace']}::expect({lines[0].content}"
