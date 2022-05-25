@@ -3,10 +3,10 @@
 
 import re
 import pathlib
-
 from typing import Optional
 from dataclasses import dataclass, field
 from enum import Enum
+from . import log
 
 
 @dataclass
@@ -329,6 +329,7 @@ def _load_tree(tokens: list[Token]) -> Node:
             )
         else:
             assert False, f"Unsupported token kind: {token}"
+        _display_tree(root, level="dump", title=f"Tree state after {token}")
     return root
 
 
@@ -426,14 +427,23 @@ def _lift_tree(root: Node, **kwargs) -> Node:
     return root
 
 
-def _display_tree(root: Node, depth=0):
+def _display_tree_recursive(root: Node, depth: int, level: str):
     if root is not None:
-        print(
-            f'{" " * (2 * depth + 3)} {root.precedence:02d} {root.kind} {" ".join(t.content for t in root.tokens)}  [{hex(id(root))} -> {hex(id(root.parent)) if root.parent is not None else None}]'
+        log.log(
+            f'{" " * (2 * depth + 3)} {root.precedence:02d} {root.kind} {" ".join(t.content for t in root.tokens)}  [{hex(id(root))} -> {hex(id(root.parent)) if root.parent is not None else None}]',
+            level=level,
         )
-        ignored = [_display_tree(c, depth=depth + 1) for c in root.children]
+        ignored = [_display_tree_recursive(c, depth=depth + 1, level=level) for c in root.children]
     else:
-        print("   None")
+        log.log("   None", level=level)
+
+
+def _display_tree(root: Node, level: str = "dump", title: Optional[str] = None):
+    if not log.is_active(level):
+        return
+    if title is not None:
+        log.log(title, level=level)
+    _display_tree_recursive(root=root, depth=0, level=level)
 
 
 def _collect_tokens(root: Node) -> list[Token]:
@@ -475,14 +485,13 @@ def _normalize_connectors(connectors: list[str]):
 
 def _connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Line]:
     assert lines
-    print(f' Input: {"~".join(l.content for l in lines)}')
+    log.log(f'Input: {"~".join(l.content for l in lines)}', level="debug")
     tokens = _tokenize(lines=lines)
-    print(f'  Tokens: {"~".join(f"{{{t.content}-{t.kind}}}" for t in tokens)}')
+    log.log(f'Tokens: {"~".join(f"{{{t.content}-{t.kind}}}" for t in tokens)}', level="debug")
     tree = _load_tree(tokens=tokens)
-    _display_tree(root=tree)
+    _display_tree(root=tree, title="Original tree without modifications", level="trace")
     tree = _insert_connectors(root=tree, connectors=connectors)
-    print("with connectors")
-    _display_tree(root=tree)
+    _display_tree(root=tree, title="Tree with connectors", level="trace")
     return tree
 
 
@@ -513,8 +522,7 @@ def lift(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Lin
         lift_decider
     ):  # at least two nodes in total
         tree = _lift_tree(root=tree, **kwargs)
-    print("lifted")
-    _display_tree(root=tree)
+    _display_tree(root=tree, title="Lifted Tree", level="trace")
     tokens = _collect_tokens(root=tree)
     lines = prefix + _reconstruct_lines(tokens=tokens, original=lines)
 
@@ -523,7 +531,7 @@ def lift(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Lin
     if not expect_is_internally_closed:
         lines[-1].content += ")"
     lines[-1].content += ";"
-    print(f' Output: {"~".join(l.content for l in lines)}')
+    log.log(f'Output: {"~".join(l.content for l in lines)}', level="debug")
     return lines
 
 
