@@ -3,7 +3,7 @@
 
 import re
 
-from . import base
+from . import base, log
 
 
 class SuiteConverter(base.SingleLineConverter):
@@ -27,35 +27,67 @@ class SuiteConverter(base.SingleLineConverter):
 class CaseConverterBase(base.MultiLineConverter):
     def __init__(self, pattern: str):
         self._rx_case_begin = re.compile(pattern)
+        self._insertion = []  # List[str]: What to insert once the test really stats (not including indentation)
         self._finisher = None  # Optional[base.Line]: How the case is supposed to be ended (including indentation)
 
     def handle_line(self, line: base.Line, **kwargs) -> list[base.Line]:
+        if self._insertion and line.content and not line.content.startswith("{"):
+            return self._generate_insertion(line=line)
+
         if self._finisher is not None:
             assert not line.content or self._finisher.level <= line.level
+            lines = [line]
             if line.level == self._finisher.level and line.content.startswith("}"):
-                line.content = self._finisher.content + line.content[1:]
+                lines = self._generate_insertion(line=line)
+                lines[-1].content = self._finisher.content + line.content[1:]
                 self._finisher = None
-            return [line]
+            return lines
 
         m = self._rx_case_begin.match(line.content)
         if not m:
             return [line]
 
-        content, self._finisher = self.handle_case(line=line, details=m.groupdict(), **kwargs)
+        content, self._insertion, self._finisher = self.handle_case(line=line, details=m.groupdict(), **kwargs)
         return [base.Line(indent=line.indent, content=content)]
+
+    def _generate_insertion(self, line: base.Line) -> list[base.Line]:
+        lines = [base.Line(indent=line.indent, content=i) for i in self._insertion] + [line]
+        self._insertion = []
+        return lines
 
 
 class CaseConverter(CaseConverterBase):
     def __init__(self):
-        super().__init__(pattern=r"BOOST_AUTO_TEST_CASE\((?P<name>[^,)]+)(?P<extra>,[^)]+)?\)")
+        super().__init__(pattern=r"BOOST_AUTO_TEST_CASE\(\s*(?P<name>[^,)]+)\s*(?P<extra>,[^)]+)?\)")
 
     def handle_case(self, line: base.Line, details: dict, namespace: str, use_literals: bool, **kwargs):
+        if details["extra"]:
+            log.warning(f"Found BOOST_AUTO_TEST_CASE with '{details['extra'].lstrip(', ')}' (unsupported and ignored).")
         if use_literals:
             content = f'"{details["name"]}"_test = []'
         else:
             content = f'{namespace}::Test{{"{details["name"]}"}} = []'
         finisher = base.Line(indent=line.indent, content="};")
-        return content, finisher
+        return content, [], finisher
+
+
+class FixtureCaseConverter(CaseConverterBase):
+    def __init__(self):
+        super().__init__(
+            pattern=r"BOOST_FIXTURE_TEST_CASE\(\s*(?P<name>[^,)]+)\s*,\s*(?P<fixture>[^,)]+)\s*(?P<extra>,[^)]+)?\)"
+        )
+
+    def handle_case(self, line: base.Line, details: dict, namespace: str, use_literals: bool, **kwargs):
+        if details["extra"]:
+            log.warning(
+                f"Found BOOST_FIXTURE_TEST_CASE with '{details['extra'].lstrip(', ')}' (unsupported and ignored)."
+            )
+        if use_literals:
+            content = f'"{details["name"]}"_test = []'
+        else:
+            content = f'{namespace}::Test{{"{details["name"]}"}} = []'
+        finisher = base.Line(indent=line.indent, content="};")
+        return content, [f'{details["fixture"]} fixture{{}};'], finisher
 
 
 class EqualCollectionExpectationConverter(base.MacroCallConverter):
@@ -96,6 +128,7 @@ def load_handlers(namespace: str):
         base.FilterHandler(forbidden={"#define BOOST_TEST_MAIN"}),
         SuiteConverter(),
         CaseConverter(),
+        FixtureCaseConverter(),
         ExpectationConverter("BOOST_TEST"),
         EqualCollectionExpectationConverter(),
     ] + [
