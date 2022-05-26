@@ -57,6 +57,11 @@ testdata_lift = [
     ("!check(x, *user)", "ct::expect(!ct::lift(check(x, *user)));", {}),
     ('f({}, {"nt"})', 'ct::expect(f({}, {"nt"}));', {}),
     ("get<Counter>() == Counter{asserted}", "ct::expect(ct::lift(get<Counter>()) == Counter{asserted});", {}),
+    (
+        'x, R"EOS({"origin": "app","value": 42})EOS"',
+        'ct::expect(ct::lift(x) != R"EOS({"origin": "app","value": 42})EOS");',
+        {"connectors": [" != "]},
+    ),
 ]
 
 

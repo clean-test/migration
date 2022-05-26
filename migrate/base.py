@@ -168,7 +168,9 @@ def _tokenize(lines: list[Line]) -> list[Token]:
     # TODO: handling of ternary (=> some sort of if then else?)
     splitters = [
         (
-            r"""(u8?|U|L)?(?<!\\)"(([^"]|(?<=\\)")*)(?<!\\)"(sv?|_\w+)?|(?<!\\)'([^']|\\.)(?<!\\)'""",
+            r"""(?<!\\)(u8?|U|L)?("(([^"]|(?<=\\)")*)(?<!\\)|R"(?P<eos>\w+)\(((?!\)(?P=eos)).)*\)(?P=eos))"(sv?|_\w+)?"""
+            r"|"
+            r"""(?<!\\)'([^']|\\.)(?<!\\)'""",
             Token.Kind.string_literal,
             _identity,
         ),
