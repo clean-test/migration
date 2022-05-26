@@ -24,31 +24,38 @@ class SuiteConverter(base.SingleLineConverter):
         return line
 
 
-class CaseConverter(base.SingleLineConverter):
-    _rx_case_begin = re.compile(r"BOOST_AUTO_TEST_CASE\((?P<name>[^,)]+)(?P<extra>,[^)]+)?\)")
+class CaseConverterBase(base.MultiLineConverter):
+    def __init__(self, pattern: str):
+        self._rx_case_begin = re.compile(pattern)
+        self._finisher = None  # Optional[base.Line]: How the case is supposed to be ended (including indentation)
 
-    def __init__(self):
-        self._finisher = None
-
-    def handle_line(self, line: base.Line, namespace: str, use_literals: bool, **kwargs) -> base.Line:
+    def handle_line(self, line: base.Line, **kwargs) -> list[base.Line]:
         if self._finisher is not None:
             assert not line.content or self._finisher.level <= line.level
-            if line.level == self._finisher.level and not line.content.startswith("{") and line.content.startswith("}"):
+            if line.level == self._finisher.level and line.content.startswith("}"):
                 line.content = self._finisher.content + line.content[1:]
                 self._finisher = None
-            return line
+            return [line]
 
-        m = CaseConverter._rx_case_begin.match(line.content)
+        m = self._rx_case_begin.match(line.content)
         if not m:
-            return line
-        m = m.groupdict()
+            return [line]
 
+        content, self._finisher = self.handle_case(line=line, details=m.groupdict(), **kwargs)
+        return [base.Line(indent=line.indent, content=content)]
+
+
+class CaseConverter(CaseConverterBase):
+    def __init__(self):
+        super().__init__(pattern=r"BOOST_AUTO_TEST_CASE\((?P<name>[^,)]+)(?P<extra>,[^)]+)?\)")
+
+    def handle_case(self, line: base.Line, details: dict, namespace: str, use_literals: bool, **kwargs):
         if use_literals:
-            content = f'"{m["name"]}"_test = []'
+            content = f'"{details["name"]}"_test = []'
         else:
-            content = f'{namespace}::Test{{"{m["name"]}"}} = []'
-        self._finisher = base.Line(indent=line.indent, content="};")
-        return base.Line(indent=line.indent, content=content)
+            content = f'{namespace}::Test{{"{details["name"]}"}} = []'
+        finisher = base.Line(indent=line.indent, content="};")
+        return content, finisher
 
 
 class EqualCollectionExpectationConverter(base.MacroCallConverter):
