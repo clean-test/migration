@@ -6,8 +6,14 @@ import re
 from . import base, log
 
 
+def _macro_pattern(name: str, *properties) -> str:
+    assert properties
+    body = ",".join(rf"\s*(?P<{property}>[^,)]+)\s*" for property in properties)
+    return rf"{name}\({body}(?P<extra>,.+)?\)(?P<trailer>\s*" + r"{?\s*(//.*|/\*.*)?)$"
+
+
 class SuiteConverter(base.SingleLineConverter):
-    _rx_suite_begin = re.compile(r"^BOOST_AUTO_TEST_SUITE\((?P<name>\w+)\)$")
+    _rx_suite_begin = re.compile(_macro_pattern("BOOST_AUTO_TEST_SUITE", "name"))
 
     def handle_line(self, line: base.Line, namespace: str, **kwargs) -> base.Line:
         m = SuiteConverter._rx_suite_begin.match(line.content)
@@ -15,7 +21,7 @@ class SuiteConverter(base.SingleLineConverter):
             m = m.groupdict()
             return base.Line(
                 indent=line.indent,
-                content=f'auto const {m["name"]} = {namespace}::Suite{{"{m["name"]}", [] {{',
+                content=f'auto const {m["name"]} = {namespace}::Suite{{"{m["name"]}", [] {{{m["trailer"]}',
             )
 
         if line.content == "BOOST_AUTO_TEST_SUITE_END()":
@@ -58,7 +64,7 @@ class CaseConverterBase(base.MultiLineConverter):
 
 class CaseConverter(CaseConverterBase):
     def __init__(self):
-        super().__init__(pattern=r"BOOST_AUTO_TEST_CASE\(\s*(?P<name>[^,)]+)\s*(?P<extra>,[^)]+)?\)")
+        super().__init__(pattern=_macro_pattern("BOOST_AUTO_TEST_CASE", "name"))
 
     def handle_case(self, line: base.Line, details: dict, namespace: str, use_literals: bool, **kwargs):
         if details["extra"]:
@@ -67,15 +73,14 @@ class CaseConverter(CaseConverterBase):
             content = f'"{details["name"]}"_test = []'
         else:
             content = f'{namespace}::Test{{"{details["name"]}"}} = []'
+        content += details["trailer"]
         finisher = base.Line(indent=line.indent, content="};")
         return content, [], finisher
 
 
 class FixtureCaseConverter(CaseConverterBase):
     def __init__(self):
-        super().__init__(
-            pattern=r"BOOST_FIXTURE_TEST_CASE\(\s*(?P<name>[^,)]+)\s*,\s*(?P<fixture>[^,)]+)\s*(?P<extra>,[^)]+)?\)"
-        )
+        super().__init__(pattern=_macro_pattern("BOOST_FIXTURE_TEST_CASE", "name", "fixture"))
 
     def handle_case(self, line: base.Line, details: dict, namespace: str, use_literals: bool, **kwargs):
         if details["extra"]:
@@ -86,6 +91,7 @@ class FixtureCaseConverter(CaseConverterBase):
             content = f'"{details["name"]}"_test = []'
         else:
             content = f'{namespace}::Test{{"{details["name"]}"}} = []'
+        content += details["trailer"]
         finisher = base.Line(indent=line.indent, content="};")
         return content, [f'{details["fixture"]} fixture{{}};'], finisher
 
