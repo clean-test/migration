@@ -30,6 +30,47 @@ class SuiteConverter(base.SingleLineConverter):
         return line
 
 
+class FixtureSuiteConverter(base.SingleLineConverter):
+    _rx_suite_begin = re.compile(_macro_pattern("BOOST_FIXTURE_TEST_SUITE", "name", "fixture"))
+    _rx_auto_case_begin = re.compile(_macro_pattern("BOOST_AUTO_TEST_CASE", "name"))
+    _rx_data_case_begin = re.compile(_macro_pattern("BOOST_DATA_TEST_CASE", "name"))
+
+    def __init__(self):
+        self._fixture_stack = []
+
+    def handle_line(self, line: base.Line, **kwargs) -> base.Line:
+        if (
+            self._fixture_stack
+            and line.indent == self._fixture_stack[-1]["indent"]
+            and line.content == "BOOST_AUTO_TEST_SUITE_END()"
+        ):
+            self._fixture_stack.pop()
+            return line
+
+        if self._fixture_stack:
+            fixture = self._fixture_stack[-1]['fixture']
+            m = FixtureSuiteConverter._rx_auto_case_begin.match(line.content)
+            if m:
+                line.content = f"BOOST_FIXTURE_TEST_CASE({m.group('name')}, {fixture}{self._extras(m.groupdict())}){m.group('trailer')}"
+                return line
+            m = FixtureSuiteConverter._rx_data_case_begin.match(line.content)
+            if m:
+                line.content = f"BOOST_DATA_TEST_CASE_F({fixture}, {m.group('name')}{self._extras(m.groupdict())}){m.group('trailer')}"
+                return line
+
+        m = FixtureSuiteConverter._rx_suite_begin.match(line.content)
+        if not m:
+            return line
+        self._fixture_stack.append({"indent": line.indent, "fixture": m.group("fixture")})
+        return base.Line(indent=line.indent, content=f"BOOST_AUTO_TEST_SUITE({m.group('name')})")
+
+    def _extras(self, details: dict) -> str:
+        extras = details["extra"]
+        if extras is None:
+            extras = ""
+        return extras
+
+
 class CaseConverterBase(base.MultiLineConverter):
     def __init__(self, pattern: str):
         self._rx_case_begin = re.compile(pattern)
@@ -132,6 +173,7 @@ def load_handlers(namespace: str):
     return [
         base.ReFilterHandler({re.compile(r'^#include\s+[<"]boost/test')}),
         base.FilterHandler(forbidden={"#define BOOST_TEST_MAIN"}),
+        FixtureSuiteConverter(),
         SuiteConverter(),
         CaseConverter(),
         FixtureCaseConverter(),
