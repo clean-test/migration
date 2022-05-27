@@ -102,39 +102,34 @@ class CaseConverterBase(base.MultiLineConverter):
         self._insertion = []
         return lines
 
+    def generate_case_content(self, name: str, namespace: str, use_literals: bool, trailer: str, **kwargs) -> str:
+        content = f'"{name}"_test = []' if use_literals else f'{namespace}::Test{{"{name}"}} = []'
+        return content + trailer
+
 
 class CaseConverter(CaseConverterBase):
     def __init__(self):
         super().__init__(pattern=_macro_pattern("BOOST_AUTO_TEST_CASE", "name"))
 
-    def handle_case(self, line: base.Line, details: dict, namespace: str, use_literals: bool, **kwargs):
+    def handle_case(self, line: base.Line, details: dict, **kwargs):
         if details["extra"]:
             log.warning(f"Found BOOST_AUTO_TEST_CASE with '{details['extra'].lstrip(', ')}' (unsupported and ignored).")
-        if use_literals:
-            content = f'"{details["name"]}"_test = []'
-        else:
-            content = f'{namespace}::Test{{"{details["name"]}"}} = []'
-        content += details["trailer"]
+
         finisher = base.Line(indent=line.indent, content="};")
-        return content, [], finisher
+        return self.generate_case_content(**kwargs, **details), [], finisher
 
 
 class FixtureCaseConverter(CaseConverterBase):
     def __init__(self):
         super().__init__(pattern=_macro_pattern("BOOST_FIXTURE_TEST_CASE", "name", "fixture"))
 
-    def handle_case(self, line: base.Line, details: dict, namespace: str, use_literals: bool, **kwargs):
+    def handle_case(self, line: base.Line, details: dict, **kwargs):
         if details["extra"]:
             log.warning(
                 f"Found BOOST_FIXTURE_TEST_CASE with '{details['extra'].lstrip(', ')}' (unsupported and ignored)."
             )
-        if use_literals:
-            content = f'"{details["name"]}"_test = []'
-        else:
-            content = f'{namespace}::Test{{"{details["name"]}"}} = []'
-        content += details["trailer"]
         finisher = base.Line(indent=line.indent, content="};")
-        return content, [f'{details["fixture"]} fixture{{}};'], finisher
+        return self.generate_case_content(**kwargs, **details), [f'{details["fixture"]} fixture{{}};'], finisher
 
 
 class EqualCollectionExpectationConverter(base.MacroCallConverter):
