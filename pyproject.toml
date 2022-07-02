@@ -9,7 +9,7 @@ authors = ["m8mble <m8mble@vivaldi.net>"]
 license = "BSL-1.0"
 
 [tool.poetry.dependencies]
-python = ">=3.8"
+python = ">=3.9"
 coloredlogs = "^15.0.1"
 colorama = "^0.4.4"
 
