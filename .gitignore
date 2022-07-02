@@ -1,0 +1,8 @@
+# Copyright (c) m8mble 2022.
+# SPDX-License-Identifier: BSL-1.0
+
+# Python specifics
+__pycache__/
+*.egg-info/
+poetry.lock
+venv*/
