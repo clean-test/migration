@@ -164,6 +164,42 @@ class ExpectationConverter(base.MacroCallConverter):
         return m.group()[:-1] if m else None
 
 
+class ThrowExpectationConverter(base.MacroCallConverter):
+    def __init__(self, macro, *, terminator: str = ""):
+        super().__init__()
+        self._rx_macro = re.compile(rf"{macro}\(")
+        self._rx_exception = re.compile(rf"(\s*,|^)\s*(?P<xcp>[^,]*)$")
+        self._terminator = terminator
+
+    def handle_macro(self, macro: str, lines: list[base.Line], namespace: str, **kwargs) -> list[base.Line]:
+        if "_NO_" in self._rx_macro.pattern:
+            lines[0].content = f"{namespace}::expect(not {namespace}::throws([&]() {{ {lines[0].content}"
+        else:
+            # At this point we need to take some shortcuts: In order to determine the right exception type, we would
+            # actually need to parse the full expression just to find the right comma (similar to the AST-like handling
+            # for lifting). Since we do not have this functionality at hand, we deliberately use a very simplified
+            # exception type detection.
+            m = self._rx_exception.search(lines[-1].content)
+            assert m
+            lines[-1].content = lines[-1].content[: m.start()]
+            while lines and not lines[-1].content:
+                lines.pop()
+            assert lines
+            if lines[-1].content[-1] != ";":
+                lines[-1].content += ";"
+
+            lines[0].content = f"{namespace}::expect({namespace}::throws<{m.group('xcp')}>([&]() {{ {lines[0].content}"
+        lines[-1].content = f"{lines[-1].content} }})){self._terminator};"
+
+        for i in (0, -1):
+            lines[i].content = lines[i].content.strip()
+        return lines
+
+    def check_start(self, content: str) -> str:
+        m = self._rx_macro.match(content)
+        return m.group()[:-1] if m else None
+
+
 def load_handlers(namespace: str):
     return (
         [
@@ -193,5 +229,13 @@ def load_handlers(namespace: str):
                 ("_LT", [" < "]),
                 ("_NE", [" != "]),
             ]
+        ]
+        + [
+            ThrowExpectationConverter(
+                f"BOOST_{lvl}_{macro}",
+                terminator=(f" << {namespace}::{term}" if term else ""),
+            )
+            for lvl, term in (("WARN", "flaky"), ("CHECK", ""), ("REQUIRE", "asserted"))
+            for macro in ("THROW", "NO_THROW")
         ]
     )
