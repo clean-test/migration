@@ -566,7 +566,7 @@ def connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[
     return lines
 
 
-def lift(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Line]:
+def lift(lines: list[Line], *, connectors: list[str] = [], namespace: str, **kwargs) -> list[Line]:
     expect_is_internally_closed = False
     try:
         prefix, lines = _partition_empty_prefix(lines=lines)
@@ -578,7 +578,7 @@ def lift(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Lin
         if lift_decider.kind not in {Node.Kind.raw, Node.Kind.call} and not _is_member_access(
             lift_decider
         ):  # at least two nodes in total
-            tree = _lift_tree(root=tree, **kwargs)
+            tree = _lift_tree(root=tree, namespace=namespace, **kwargs)
         _display_tree(root=tree, title="Lifted Tree", level="trace")
         tokens = _collect_tokens(root=tree)
         lines = prefix + _reconstruct_lines(tokens=tokens, original=lines)
@@ -591,12 +591,9 @@ def lift(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Lin
         )
 
     # note: we currently assume there are no comments contained.
-    lines[0].content = f"{kwargs['namespace']}::expect({lines[0].content}"
+    lines[0].content = f"{namespace}::expect({lines[0].content}"
     if not expect_is_internally_closed:
         lines[-1].content += ")"
     lines[-1].content += ";"
     log.log(f'Output: {"~".join(l.content for l in lines)}', level="debug")
     return lines
-
-
-# TODO: make name of alias namespace configurable

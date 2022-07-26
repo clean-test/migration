@@ -25,9 +25,9 @@ class _StripWhitespace:
                 return n
 
 
-def load_handlers(*, namespace, **kwargs):
+def load_handlers(**kwargs):
     result = []
-    result += boost.load_handlers(namespace=namespace)
+    result += boost.load_handlers(**kwargs)
     result += [
         base.IncludeAdder(),
         _StripWhitespace(),
@@ -35,10 +35,9 @@ def load_handlers(*, namespace, **kwargs):
     return result
 
 
-def convert(path: pathlib.Path, *, namespace, handlers: list = [], **kwargs):
+def convert(path: pathlib.Path, *, handlers: list = [], **kwargs):
     if not handlers:
-        handlers = load_handlers(namespace=namespace)
-    kwargs.update(namespace=namespace)
+        handlers = load_handlers(**kwargs)
     lines = base.load_lines(path)
     lines = convert_lines(lines, handlers=handlers, **kwargs)
     base.write_lines(lines, path=path)
