@@ -135,10 +135,10 @@ throw_testdata = [
 def test_throw(case, expected):
     kwargs = {"namespace": "ct"}
     parsers = [
-        boost.ThrowExpectationConverter("BOOST_REQUIRE_THROW", terminator=f" << {kwargs['namespace']}::asserted"),
-        boost.ThrowExpectationConverter("BOOST_WARN_THROW", terminator=f" << {kwargs['namespace']}::flaky"),
+        boost.ThrowExpectationConverter("BOOST_REQUIRE_THROW", terminator="asserted"),
+        boost.ThrowExpectationConverter("BOOST_WARN_THROW", terminator="flaky"),
         boost.ThrowExpectationConverter("BOOST_CHECK_NO_THROW"),
-        boost.ThrowExpectationConverter("BOOST_REQUIRE_NO_THROW", terminator=f" << {kwargs['namespace']}::asserted"),
+        boost.ThrowExpectationConverter("BOOST_REQUIRE_NO_THROW", terminator="asserted"),
     ]
     lines = migrate.convert_lines(lines=base.split_lines(case), handlers=parsers, **kwargs)
     assert lines == base.split_lines(expected)

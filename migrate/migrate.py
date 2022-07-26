@@ -25,9 +25,9 @@ class _StripWhitespace:
                 return n
 
 
-def load_handlers(*, namespace, **kwargs):
+def load_handlers(**kwargs):
     result = []
-    result += boost.load_handlers(namespace=namespace)
+    result += boost.load_handlers(**kwargs)
     result += [
         base.IncludeAdder(),
         _StripWhitespace(),

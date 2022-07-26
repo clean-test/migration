@@ -12,6 +12,12 @@ def _macro_pattern(name: str, *properties) -> str:
     return rf"{name}\({body}(?P<extra>,.+)?\)(?P<trailer>\s*" + r"{?\s*(//.*|/\*.*)?)$"
 
 
+def _terminator(what: str, *, namespace: str) -> str:
+    if not what:
+        return ""
+    return f" << {namespace}::{what}"
+
+
 class SuiteConverter(base.SingleLineConverter):
     _rx_suite_begin = re.compile(_macro_pattern("BOOST_AUTO_TEST_SUITE", "name"))
 
@@ -154,9 +160,9 @@ class ExpectationConverter(base.MacroCallConverter):
         self._connectors = connectors
         self._terminator = terminator
 
-    def handle_macro(self, macro: str, lines: list[base.Line], **kwargs) -> list[base.Line]:
-        lines = base.lift(lines=lines, connectors=self._connectors, **kwargs)
-        lines[-1].content = f"{lines[-1].content[:-1]}{self._terminator};"
+    def handle_macro(self, macro: str, lines: list[base.Line], namespace: str, **kwargs) -> list[base.Line]:
+        lines = base.lift(lines=lines, connectors=self._connectors, namespace=namespace, **kwargs)
+        lines[-1].content = f"{lines[-1].content[:-1]}{_terminator(self._terminator, namespace=namespace)};"
         return lines
 
     def check_start(self, content: str) -> str:
@@ -189,7 +195,7 @@ class ThrowExpectationConverter(base.MacroCallConverter):
                 lines[-1].content += ";"
 
             lines[0].content = f"{namespace}::expect({namespace}::throws<{m.group('xcp')}>([&]() {{ {lines[0].content}"
-        lines[-1].content = f"{lines[-1].content} }})){self._terminator};"
+        lines[-1].content = f"{lines[-1].content} }})){_terminator(self._terminator, namespace=namespace)};"
 
         for i in (0, -1):
             lines[i].content = lines[i].content.strip()
@@ -200,7 +206,7 @@ class ThrowExpectationConverter(base.MacroCallConverter):
         return m.group()[:-1] if m else None
 
 
-def load_handlers(namespace: str):
+def load_handlers(**kwargs):
     return (
         [
             base.ReFilterHandler({re.compile(r'^#include\s+[<"]boost/test')}),
@@ -216,7 +222,7 @@ def load_handlers(namespace: str):
             ExpectationConverter(
                 f"BOOST_{lvl}{macro}",
                 connectors=connectors,
-                terminator=(f" << {namespace}::{term}" if term else ""),
+                terminator=term,
             )
             for lvl, term in (("WARN", "flaky"), ("CHECK", ""), ("REQUIRE", "asserted"))
             for macro, connectors in [
@@ -231,10 +237,7 @@ def load_handlers(namespace: str):
             ]
         ]
         + [
-            ThrowExpectationConverter(
-                f"BOOST_{lvl}_{macro}",
-                terminator=(f" << {namespace}::{term}" if term else ""),
-            )
+            ThrowExpectationConverter(f"BOOST_{lvl}_{macro}", terminator=term)
             for lvl, term in (("WARN", "flaky"), ("CHECK", ""), ("REQUIRE", "asserted"))
             for macro in ("THROW", "NO_THROW")
         ]
