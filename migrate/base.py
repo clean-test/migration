@@ -65,38 +65,91 @@ class SingleLineConverter:
 class MultiLineConverter:
     def __call__(self, lines: list[Line], **kwargs) -> list[Line]:
         lines = [self.handle_line(l, **kwargs) for l in lines]
-        return [line for l in lines for line in l]
+        return [line for l in lines for line in l] + self.handle_end(**kwargs)
+
+    def handle_end(self, **kwargs) -> list[Line]:
+        return []
 
 
 class MacroCallConverter(MultiLineConverter):
-    _rx_termination = re.compile(r"\);(?P<comment>\s*(//.*|\\))?$")
+    _rx_termination = re.compile(r"(?P<term>\)?;)(?P<comment>\s*(//.*|\\))?$")
 
     def __init__(self):
-        self._buffer = []
         self._macro = None
+        self._buffer = []
+        self._termination = {}
 
     def handle_line(self, line: Line, **kwargs) -> list[Line]:
-        is_first_macro_line = False
-        result = [line]
+        """Update state by parsing another line.
+
+        We want to be able to find any macro invocation. This includes function-like invocations as well as more
+        advanced ones which include expressions (with ';') as arguments. Therefore it's not trivial to decide when
+        a macro-call is actually complete.
+
+        The basic idea is as follows: We collect macro lines until we can assume that something else starts; it either
+        starts as the current invocation really ends (among others based on indentation) or some other construct starts
+        in the next line. This is why the actual conversion can be delayed by one line in certain cases.
+        """
+        # Check whether line continues buffered macro invocation (and in that case abort further processing)
+        if self._buffer:
+            if self._buffer[0].indent < line.indent or not line.content:
+                self.append_to_buffer(line)
+                return []
+            elif self._buffer[0].indent == line.indent:
+                m = self._rx_termination.match(line.content)
+                if m and m.group("term").startswith(")"):
+                    self.append_to_buffer(line)
+                    return []
+
+        # Handle maro invocation of previously buffered lines
+        result = []
+        if self._buffer:
+            result = self.migrate_buffer(**kwargs)
+
+        # Check for newly starting macro invocation
         if not self._macro:
             self._macro = self.check_start(content=line.content)
-            is_first_macro_line = True
-        if self._macro:
-            if is_first_macro_line:
+            if self._macro:
                 assert line.content[len(self._macro)] == "("
                 line.content = line.content[len(self._macro) + 1 :]
-            self._buffer.append(line)
-            result = []
-        m = self._rx_termination.search(self._buffer[-1].content) if self._buffer else None
-        if m:
-            line = self._buffer[-1]
-            line.content = line.content[: m.start()]
-            result = self.handle_macro(macro=self._macro, lines=self._buffer, **kwargs)
-            comment = m.group("comment")
-            result[-1].content += comment if comment else ""
-            self._buffer = []
-            self._macro = None
+
+        if self._macro:
+            self.append_to_buffer(line)
+        else:
+            result.append(line)
+
         return result
+
+    def handle_end(self, **kwargs) -> list[Line]:
+        if self._termination:
+            self._buffer = self.migrate_buffer(**kwargs)
+        return self._buffer
+
+    def migrate_buffer(self, **kwargs) -> list[Line]:
+        assert self._termination
+        # By construction of the buffering above, there may be trailing empty lines. We artificially keep those out of
+        # macro handling logic and just copy them over.
+        first_empty_idx = len(self._buffer)
+        while first_empty_idx > 0 and not self._buffer[first_empty_idx - 1].content:
+            first_empty_idx -= 1
+        empty_lines = self._buffer[first_empty_idx:]
+
+        lines = self._buffer[:first_empty_idx]
+        lines[-1].content = lines[-1].content[: -len("".join(self._termination.values()))]
+        result = self.handle_macro(macro=self._macro, lines=lines, **kwargs)
+        comment = self._termination.get("comment", "")
+        result[-1].content += comment if comment else ""
+
+        self._macro = None
+        self._buffer = []
+        self._termination = {}
+        return result + empty_lines
+
+    def append_to_buffer(self, line: Line):
+        self._buffer.append(line)
+        m = self._rx_termination.search(line.content)
+        if m and m.group("term").startswith(")"):
+            self._termination = m.groupdict(default="")
 
 
 class IncludeAdder:

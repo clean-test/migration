@@ -23,6 +23,66 @@ testdata = [
             &var))
         == U"fancy");""",
     ),
+    (
+        """\
+        {
+            BOOST_TEST(true);
+            BOOST_TEST(false);
+        }
+        """,
+        """\
+        {
+            ct::expect(true);
+            ct::expect(false);
+        }
+        """,
+    ),
+    (
+        """\
+        {
+            BOOST_TEST(true);
+            foo;
+            BOOST_TEST(false);
+        }
+        """,
+        """\
+        {
+            ct::expect(true);
+            foo;
+            ct::expect(false);
+        }
+        """,
+    ),
+    (
+        """\
+        {
+            BOOST_TEST(true);
+
+            BOOST_TEST(false);
+        }
+        """,
+        """\
+        {
+            ct::expect(true);
+
+            ct::expect(false);
+        }
+        """,
+    ),
+    (
+        """\
+        BOOST_TEST(true);
+
+
+        x = f();
+        """,
+        """\
+        ct::expect(true);
+
+
+        x = f();
+        """,
+    ),
 ]
 
 
