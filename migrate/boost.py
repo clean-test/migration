@@ -48,7 +48,7 @@ class FixtureSuiteConverter(base.SingleLineConverter):
             return line
 
         if self._fixture_stack:
-            fixture = self._fixture_stack[-1]['fixture']
+            fixture = self._fixture_stack[-1]["fixture"]
             m = FixtureSuiteConverter._rx_auto_case_begin.match(line.content)
             if m:
                 line.content = f"BOOST_FIXTURE_TEST_CASE({m.group('name')}, {fixture}{self._extras(m.groupdict())}){m.group('trailer')}"
@@ -165,30 +165,33 @@ class ExpectationConverter(base.MacroCallConverter):
 
 
 def load_handlers(namespace: str):
-    return [
-        base.ReFilterHandler({re.compile(r'^#include\s+[<"]boost/test')}),
-        base.FilterHandler(forbidden={"#define BOOST_TEST_MAIN"}),
-        FixtureSuiteConverter(),
-        SuiteConverter(),
-        CaseConverter(),
-        FixtureCaseConverter(),
-        ExpectationConverter("BOOST_TEST"),
-        EqualCollectionExpectationConverter(),
-    ] + [
-        ExpectationConverter(
-            f"BOOST_{lvl}{macro}",
-            connectors=connectors,
-            terminator=(f" << {namespace}::{term}" if term else ""),
-        )
-        for lvl, term in (("WARN", "flaky"), ("CHECK", ""), ("REQUIRE", "asserted"))
-        for macro, connectors in [
-            ("", []),
-            ("_EQUAL", [" == "]),
-            ("_MESSAGE", [" << "]),
-            ("_GE", [" >= "]),
-            ("_GT", [" > "]),
-            ("_LE", [" <= "]),
-            ("_LT", [" < "]),
-            ("_NE", [" != "]),
+    return (
+        [
+            base.ReFilterHandler({re.compile(r'^#include\s+[<"]boost/test')}),
+            base.FilterHandler(forbidden={"#define BOOST_TEST_MAIN"}),
+            FixtureSuiteConverter(),
+            SuiteConverter(),
+            CaseConverter(),
+            FixtureCaseConverter(),
+            ExpectationConverter("BOOST_TEST"),
+            EqualCollectionExpectationConverter(),
         ]
-    ]
+        + [
+            ExpectationConverter(
+                f"BOOST_{lvl}{macro}",
+                connectors=connectors,
+                terminator=(f" << {namespace}::{term}" if term else ""),
+            )
+            for lvl, term in (("WARN", "flaky"), ("CHECK", ""), ("REQUIRE", "asserted"))
+            for macro, connectors in [
+                ("", []),
+                ("_EQUAL", [" == "]),
+                ("_MESSAGE", [" << "]),
+                ("_GE", [" >= "]),
+                ("_GT", [" > "]),
+                ("_LE", [" <= "]),
+                ("_LT", [" < "]),
+                ("_NE", [" != "]),
+            ]
+        ]
+    )
