@@ -52,6 +52,6 @@ Other unit-test frameworks will be added in the future based on the lifting util
 
 [badge-black]: https://img.shields.io/badge/code%20style-black-000000.svg
 [badge-BSL]: https://img.shields.io/badge/license-BSL--1.0-informational
-[badge-tests]: https://github.com/clean-test/migration/actions/workflows/test.yml/badge.svg
+[badge-tests]: https://github.com/clean-test/migration/actions/workflows/test.yml/badge.svg?branch=main
 [badge-python]: https://img.shields.io/badge/python-3.9%20%7C%203.10-informational
 [link-tests]: https://github.com/clean-test/clean-test/actions/workflows/test.yml
