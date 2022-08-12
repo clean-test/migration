@@ -173,6 +173,49 @@ class ExpectationConverter(base.MacroCallConverter):
         return m.group()[:-1] if m else None
 
 
+class ClosenessConverter(base.MacroCallConverter):
+    def __init__(self, macro, *, multiplier: float = 1.0, terminator: str = ""):
+        super().__init__()
+        self._rx_macro = re.compile(rf"{macro}\(")
+        self._multiplier = multiplier
+        self._terminator = terminator
+
+    def handle_macro(self, macro: str, lines: list[base.Line], namespace: str, **kwargs) -> list[base.Line]:
+        multiplier_front, multiplier_back = ("", "") if self._multiplier == 1.0 else (f"{self._multiplier} * (", ")")
+
+        def _adapter(root):
+            assert root.kind == base.Node.Kind.binary and "".join(t.content for t in root.tokens).strip() == ","
+            right = root.children[1]
+            assert right.kind == base.Node.Kind.binary and "".join(t.content for t in right.tokens).strip() == ","
+
+            # left child of root is LHS. children of right are RHS and tolerance.
+            root.children[0] = base.lift_tree(root.children[0], namespace=namespace)
+            base.display_tree(root=root, title="Lift Left", level="trace")
+            for i in range(2):
+                right.children[i] = base.lift_tree(right.children[i], namespace=namespace)
+                base.display_tree(root=root, title=f"Lift Right {i}", level="trace")
+
+            connectors = [
+                ", ",
+                f") <= {namespace}::tolerance(std::numeric_limits<double>::epsilon(), {multiplier_front}",
+            ]
+            root = base.insert_connectors(root=root, connectors=connectors)
+            base.display_tree(root=root, title="Connected", level="trace")
+            return root
+
+        lines = base.transform_tree(lines=lines, adapter=_adapter)
+
+        lines[0].content = f"{namespace}::expect({namespace}::distance({lines[0].content}"
+        lines[
+            -1
+        ].content = f"{lines[-1].content}{multiplier_back})){_terminator(self._terminator, namespace=namespace)};"
+        return lines
+
+    def check_start(self, content: str) -> str:
+        m = self._rx_macro.match(content)
+        return m.group()[:-1] if m else None
+
+
 class ThrowExpectationConverter(base.MacroCallConverter):
     def __init__(self, macro, *, terminator: str = ""):
         super().__init__()
@@ -238,6 +281,15 @@ def load_handlers(**kwargs):
                 ("_LT", [" < "]),
                 ("_NE", [" != "]),
             ]
+        ]
+        + [
+            ClosenessConverter(
+                f"BOOST_{lvl}_CLOSE{suffix}",
+                terminator=term,
+                multiplier=mult,
+            )
+            for lvl, term in (("WARN", "flaky"), ("CHECK", ""), ("REQUIRE", "asserted"))
+            for suffix, mult in (("", 0.01), ("_FRACTION", 1))
         ]
         + [
             ThrowExpectationConverter(f"BOOST_{lvl}_{macro}", terminator=term)

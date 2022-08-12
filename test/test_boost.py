@@ -142,3 +142,28 @@ def test_throw(case, expected):
     ]
     lines = migrate.convert_lines(lines=base.split_lines(case), handlers=parsers, **kwargs)
     assert lines == base.split_lines(expected)
+
+
+close_testdata = [
+    (
+        "BOOST_REQUIRE_CLOSE_FRACTION(a.b, c, tolerance); // yea?",
+        "ct::expect(ct::distance(a.b, c)"
+        " <= ct::tolerance(std::numeric_limits<double>::epsilon(), tolerance)) << ct::asserted; // yea?",
+    ),
+    (
+        "BOOST_CHECK_CLOSE(x + y, 1 + 2.0, f() + g());",
+        "ct::expect(ct::distance(ct::lift(x) + y, 1_i + 2.0)"
+        " <= ct::tolerance(std::numeric_limits<double>::epsilon(), 0.01 * (ct::lift(f()) + g())));",
+    ),
+]
+
+
+@pytest.mark.parametrize("case,expected", close_testdata)
+def test_close(case, expected):
+    kwargs = {"namespace": "ct"}
+    parsers = [
+        boost.ClosenessConverter("BOOST_REQUIRE_CLOSE_FRACTION", terminator="asserted"),
+        boost.ClosenessConverter("BOOST_CHECK_CLOSE", multiplier=0.01),
+    ]
+    lines = migrate.convert_lines(lines=base.split_lines(case), handlers=parsers, **kwargs)
+    assert lines == base.split_lines(expected)
