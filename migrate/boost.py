@@ -146,7 +146,10 @@ class EqualCollectionExpectationConverter(base.MacroCallConverter):
         return m.group()[:-1] if m else None
 
     def handle_macro(self, macro: str, lines: list[base.Line], **kwargs) -> list[base.Line]:
-        lines = base.connect(lines=lines, connectors=[", ", "}, std::ranges::subrange{", ", "], **kwargs)
+        def _adapter(tree):
+            return base.insert_connectors(root=tree, connectors=[", ", "}, std::ranges::subrange{", ", "])
+
+        lines = base.transform_tree(lines=lines, adapter=_adapter)
         lvl = self._rx_macro_start.match(f"{macro}(").group("lvl")
         lines[0].content = f"BOOST_{lvl}_EQUAL(std::ranges::equal(std::ranges::subrange{{{lines[0].content}"
         lines[-1].content = f"{lines[-1].content}}}));"

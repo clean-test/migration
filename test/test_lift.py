@@ -12,9 +12,16 @@ testdata_connect = [
 ]
 
 
+def _connect(lines, **kwargs):
+    def _adapter(tree):
+        return base.insert_connectors(root=tree, **kwargs)
+
+    return base.transform_tree(lines=lines, adapter=_adapter)
+
+
 @pytest.mark.parametrize("case,expected,connectors", testdata_connect)
 def test_connect(case, expected, connectors):
-    assert base.connect(lines=[base.Line(indent="", content=case)], connectors=connectors)[0].content == expected
+    assert _connect(lines=[base.Line(indent="", content=case)], connectors=connectors)[0].content == expected
 
 
 testdata_lift = [

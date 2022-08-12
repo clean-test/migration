@@ -574,13 +574,6 @@ def transform_tree(lines: list[Line], *, adapter, **kwargs) -> list[Line]:
     return lines
 
 
-def connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Line]:
-    def _adapter(tree):
-        return insert_connectors(root=tree, connectors=connectors)
-
-    return transform_tree(lines=lines, adapter=_adapter)
-
-
 def lift(lines: list[Line], *, connectors: list[str] = [], namespace: str, **kwargs) -> list[Line]:
     expect_is_internally_closed, connectors = _normalize_connectors(connectors)
 
