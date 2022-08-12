@@ -464,6 +464,10 @@ def _is_automatically_lifted(node: Node) -> bool:
 
 
 def _lift_tree(root: Node, **kwargs) -> Node:
+    """Unconditionally lift tree rooted at root.
+
+    Assumes lifting necessity has already been checked for (c.f. lift_tree without leading underscore).
+    """
     num_auto_lifted_children = 0
     children = root.children if not root.lifting_barrier else root.children[:1]
     for child in children:
@@ -559,6 +563,18 @@ def _partition_empty_prefix(lines: list[Line]) -> (list[Line], list[Line]):
     return empty_prefix, lines[len(empty_prefix) :]
 
 
+def lift_tree(tree, **kwargs):
+    """Lift tree rooted at tree iff necessary; otherwise return tree unchanged."""
+
+    # The brace is included for <<-connectors to close the ct::expect that will be pre-pended below.
+    lift_decider = tree if tree.kind != Node.Kind.binary or ")" not in tree.tokens[-1].content else tree.children[0]
+    if lift_decider.kind not in {Node.Kind.raw, Node.Kind.call} and not _is_member_access(
+        lift_decider
+    ):  # at least two nodes in total
+        tree = _lift_tree(root=tree, **kwargs)
+    return tree
+
+
 def transform_tree(lines: list[Line], *, adapter, **kwargs) -> list[Line]:
     prefix, lines = _partition_empty_prefix(lines=lines)
     assert lines
@@ -579,14 +595,7 @@ def lift(lines: list[Line], *, connectors: list[str] = [], namespace: str, **kwa
 
     def _adapter(tree):
         tree = insert_connectors(root=tree, connectors=connectors)
-
-        # The brace is included for <<-connectors to close the ct::expect that will be pre-pended below.
-        lift_decider = tree if tree.kind != Node.Kind.binary or ")" not in tree.tokens[-1].content else tree.children[0]
-        if lift_decider.kind not in {Node.Kind.raw, Node.Kind.call} and not _is_member_access(
-            lift_decider
-        ):  # at least two nodes in total
-            tree = _lift_tree(root=tree, namespace=namespace, **kwargs)
-
+        tree = lift_tree(tree, namespace=namespace, **kwargs)
         display_tree(root=tree, title="Lifted Tree", level="trace")
         return tree
 
