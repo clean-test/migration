@@ -522,12 +522,12 @@ def _reconstruct_lines(tokens: list[Token], original: list[Line]) -> list[Line]:
     ]
 
 
-def _insert_connectors(root: Node, connectors: list[str]) -> Node:
+def insert_connectors(root: Node, connectors: list[str]) -> Node:
     if connectors and root.kind == Node.Kind.binary and root.tokens[-1].content.strip() == ",":
         root.tokens[-1].content = connectors[0]
         if "<<" in connectors[0]:
             root.children[1].lifting_barrier = True
-        _insert_connectors(root=root.children[1], connectors=connectors[1:])
+        insert_connectors(root=root.children[1], connectors=connectors[1:])
     return root
 
 
@@ -546,7 +546,7 @@ def _connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list
     log.log(f'Tokens: {"~".join(f"{{{t.content}-{t.kind}}}" for t in tokens)}', level="debug")
     tree = _load_tree(tokens=tokens)
     display_tree(root=tree, title="Original tree without modifications", level="trace")
-    tree = _insert_connectors(root=tree, connectors=connectors)
+    tree = insert_connectors(root=tree, connectors=connectors)
     display_tree(root=tree, title="Tree with connectors", level="trace")
     return tree
 
@@ -576,7 +576,7 @@ def transform_tree(lines: list[Line], *, adapter, **kwargs) -> list[Line]:
 
 def connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list[Line]:
     def _adapter(tree):
-        return _insert_connectors(root=tree, connectors=connectors)
+        return insert_connectors(root=tree, connectors=connectors)
 
     return transform_tree(lines=lines, adapter=_adapter)
 
@@ -585,7 +585,7 @@ def lift(lines: list[Line], *, connectors: list[str] = [], namespace: str, **kwa
     expect_is_internally_closed, connectors = _normalize_connectors(connectors)
 
     def _adapter(tree):
-        tree = _insert_connectors(root=tree, connectors=connectors)
+        tree = insert_connectors(root=tree, connectors=connectors)
 
         # The brace is included for <<-connectors to close the ct::expect that will be pre-pended below.
         lift_decider = tree if tree.kind != Node.Kind.binary or ")" not in tree.tokens[-1].content else tree.children[0]
