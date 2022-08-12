@@ -384,7 +384,7 @@ def _load_tree(tokens: list[Token]) -> Node:
             )
         else:
             assert False, f"Unsupported token kind: {token}"
-        _display_tree(root, level="dump", title=f"Tree state after {token}")
+        display_tree(root, level="dump", title=f"Tree state after {token}")
     return root
 
 
@@ -494,7 +494,7 @@ def _display_tree_recursive(root: Node, depth: int, level: str):
         log.log("   None", level=level)
 
 
-def _display_tree(root: Node, level: str = "dump", title: Optional[str] = None):
+def display_tree(root: Node, level: str = "dump", title: Optional[str] = None):
     if not log.is_active(level):
         return
     if title is not None:
@@ -545,9 +545,9 @@ def _connect(lines: list[Line], *, connectors: list[str] = [], **kwargs) -> list
     tokens = _tokenize(lines=lines)
     log.log(f'Tokens: {"~".join(f"{{{t.content}-{t.kind}}}" for t in tokens)}', level="debug")
     tree = _load_tree(tokens=tokens)
-    _display_tree(root=tree, title="Original tree without modifications", level="trace")
+    display_tree(root=tree, title="Original tree without modifications", level="trace")
     tree = _insert_connectors(root=tree, connectors=connectors)
-    _display_tree(root=tree, title="Tree with connectors", level="trace")
+    display_tree(root=tree, title="Tree with connectors", level="trace")
     return tree
 
 
@@ -566,9 +566,9 @@ def transform_tree(lines: list[Line], *, adapter, **kwargs) -> list[Line]:
     tokens = _tokenize(lines=lines)
     log.debug(f'Tokens: {"~".join(f"{{{t.content}-{t.kind}}}" for t in tokens)}')
     tree = _load_tree(tokens=tokens)
-    _display_tree(root=tree, title="Original tree without modifications", level="trace")
+    display_tree(root=tree, title="Original tree without modifications", level="trace")
     tree = adapter(tree)
-    _display_tree(root=tree, title="Adapted tree", level="trace")
+    display_tree(root=tree, title="Adapted tree", level="trace")
     tokens = _collect_tokens(root=tree)
     lines = prefix + _reconstruct_lines(tokens=tokens, original=lines)
     return lines
@@ -594,7 +594,7 @@ def lift(lines: list[Line], *, connectors: list[str] = [], namespace: str, **kwa
         ):  # at least two nodes in total
             tree = _lift_tree(root=tree, namespace=namespace, **kwargs)
 
-        _display_tree(root=tree, title="Lifted Tree", level="trace")
+        display_tree(root=tree, title="Lifted Tree", level="trace")
         return tree
 
     try:
