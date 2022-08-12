@@ -485,7 +485,8 @@ def _lift_tree(root: Node, **kwargs) -> Node:
 def _display_tree_recursive(root: Node, depth: int, level: str):
     if root is not None:
         log.log(
-            f'{" " * (2 * depth + 3)} {root.precedence:02d} {root.kind} {" ".join(t.content for t in root.tokens)}  [{hex(id(root))} -> {hex(id(root.parent)) if root.parent is not None else None}]',
+            f'{" " * (2 * depth + 3)} {root.precedence:02d} {root.kind} {" ".join(t.content for t in root.tokens)}'
+            f"  [{hex(id(root))} -> {hex(id(root.parent)) if root.parent is not None else None}]",
             level=level,
         )
         ignored = [_display_tree_recursive(c, depth=depth + 1, level=level) for c in root.children]
