@@ -69,6 +69,9 @@ testdata_lift = [
         'ct::expect(ct::lift(x) != R"EOS({"origin": "app","value": 42})EOS");',
         {"connectors": [" != "]},
     ),
+    (".15 >= f()", "ct::expect(.15_d >= f());", {}),
+    ("2. != f()", "ct::expect(2._d != f());", {}),
+    ("0.15f >= f()", "ct::expect(0.15_f >= f());", {}),
 ]
 
 

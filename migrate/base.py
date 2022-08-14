@@ -229,7 +229,7 @@ def _tokenize(lines: list[Line]) -> list[Token]:
         ),
         (
             r"(\s+|\b|(^|(?<=\W))(?=\W))"
-            r"(not|&&|and|\|\||or|!=?|==|<<|>>|<=|>=|(?<!\+)\+(?!\+)|(?<!-)-(?![->])|[<>!*/%,~.]|->)"
+            r"(not|&&|and|\|\||or|!=?|==|<<|>>|<=|>=|(?<!\+)\+(?!\+)|(?<!-)-(?![->])|[<>!*/%,~]|\.(?=[a-zA-Z_])|->)"
             r"(\s+|\b|(?<=\W)($|(?=\W)))",
             Token.Kind.operator,
             _strip_templates,
@@ -435,7 +435,7 @@ _preferential_lift_number_handlers = [
     # Integers
     (re.compile(r"^(?P<number>\d[\d']*)(?P<suffix>u|l|ul|ll|ull)?$"), {"": "i", "llu": "ull", "lu": "ul"}),
     # Floats
-    (re.compile(r"^(?P<number>[\d']*\.[\d']+)(?P<suffix>f|ld)?$"), {"": "d"}),
+    (re.compile(r"^(?P<number>[\d']*\.[\d']*)(?P<suffix>f|ld)?$"), {"": "d"}),
 ]
 
 
