@@ -21,17 +21,30 @@ def _terminator(what: str, *, namespace: str) -> str:
 class SuiteConverter(base.SingleLineConverter):
     _rx_suite_begin = re.compile(_macro_pattern("BOOST_AUTO_TEST_SUITE", "name"))
 
-    def handle_line(self, line: base.Line, namespace: str, **kwargs) -> base.Line:
+    def __init__(self):
+        self._foot = ""
+
+    def handle_line(self, line: base.Line, namespace: str, use_literals: bool, **kwargs) -> base.Line:
         m = SuiteConverter._rx_suite_begin.match(line.content)
         if m:
             m = m.groupdict()
-            return base.Line(
-                indent=line.indent,
-                content=f'auto const {m["name"]} = {namespace}::Suite{{"{m["name"]}", [] {{{m["trailer"]}',
-            )
+            if use_literals:
+                self._foot = "};"
+                return base.Line(
+                    indent=line.indent,
+                    content=f'auto const {m["name"]} = "{m["name"]}"_suite = [] {{{m["trailer"]}',
+                )
+            else:
+                self._foot = "}};"
+                return base.Line(
+                    indent=line.indent,
+                    content=f'auto const {m["name"]} = {namespace}::Suite{{"{m["name"]}", [] {{{m["trailer"]}',
+                )
 
         if line.content == "BOOST_AUTO_TEST_SUITE_END()":
-            return base.Line(indent=line.indent, content="}};")
+            content = self._foot
+            self._foot = ""
+            return base.Line(indent=line.indent, content=content)
 
         return line
 
