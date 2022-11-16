@@ -138,6 +138,34 @@ class CaseConverter(CaseConverterBase):
         return self.generate_case_content(**kwargs, **details), [], finisher
 
 
+class DataCaseConverter(CaseConverterBase):
+    """" Converter for BOOST_DATA_TEST_CASE to a clean-test data-driven testcase. """
+
+    def __init__(self):
+        super().__init__(pattern=_macro_pattern("BOOST_DATA_TEST_CASE", "name", "data"))
+
+    def handle_case(self, line: base.Line, details: dict, **kwargs):
+        extra = details["extra"]
+        structured_bindings = None
+        # If there are no variable names specified explicitly, boost will name the variable sample by default anyways.
+        variable = "sample"
+        if extra:
+            extra = extra.lstrip(",").lstrip()
+            if extra.count(",") > 0:
+                structured_bindings = extra.strip()
+            else:
+                variable = extra
+            extra = ", sample"
+
+        finisher = base.Line(indent=line.indent, content="};")
+        details["trailer"] = f"(auto && {variable}){details.get('trailer', '')}"
+        return (
+            f'{details["data"]} | {self.generate_case_content(**kwargs, **details)}',
+            [f"auto & [{structured_bindings}] = {variable};"] if structured_bindings else [],
+            finisher,
+        )
+
+
 class FixtureCaseConverter(CaseConverterBase):
     def __init__(self):
         super().__init__(pattern=_macro_pattern("BOOST_FIXTURE_TEST_CASE", "name", "fixture"))
@@ -149,6 +177,24 @@ class FixtureCaseConverter(CaseConverterBase):
             )
         finisher = base.Line(indent=line.indent, content="};")
         return self.generate_case_content(**kwargs, **details), [f'{details["fixture"]} fixture{{}};'], finisher
+
+
+class FixtureDataCaseConverter(CaseConverterBase):
+    """Migrate BOOST_DATA_TEST_CASE_F to BOOST_DATA_TEST_CASE with internal fixture object.
+
+    This converter is useful for handling the fixture first. Doing so simplifies handling the data driven test cases
+    sinc those now won't bring fixtures any more.
+    """
+
+    def __init__(self):
+        super().__init__(pattern=_macro_pattern("BOOST_DATA_TEST_CASE_F", "fixture"))
+
+    def handle_case(self, line: base.Line, details: dict, **kwargs):
+        return (
+            f"BOOST_DATA_TEST_CASE({details['extra'].lstrip(',').lstrip()}){details['trailer']}",
+            [f'{details["fixture"]} fixture{{}};'],
+            None,
+        )
 
 
 class EqualCollectionExpectationConverter(base.MacroCallConverter):
@@ -274,6 +320,8 @@ def load_handlers(**kwargs):
             SuiteConverter(),
             CaseConverter(),
             FixtureCaseConverter(),
+            FixtureDataCaseConverter(),
+            DataCaseConverter(),
             ExpectationConverter("BOOST_TEST"),
             EqualCollectionExpectationConverter(),
         ]

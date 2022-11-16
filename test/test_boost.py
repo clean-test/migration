@@ -167,3 +167,69 @@ def test_close(case, expected):
     ]
     lines = migrate.convert_lines(lines=base.split_lines(case), handlers=parsers, **kwargs)
     assert lines == base.split_lines(expected)
+
+
+case_testdata = [
+    (
+        """\
+        BOOST_DATA_TEST_CASE(my_name, my_data) {
+        }
+        """,
+        """\
+        my_data | "my_name"_test = [](auto && sample) {
+        };
+        """,
+    ),
+    (
+        """\
+        BOOST_DATA_TEST_CASE(my_name, my_data, my_sample) {
+        }
+        """,
+        """\
+        my_data | "my_name"_test = [](auto && my_sample) {
+        };
+        """,
+    ),
+    (
+        """\
+        BOOST_DATA_TEST_CASE(my_name, my_data, my_sample0, my_sample1) {
+            foo(my_sample1, my_sample1);
+        }
+        """,
+        """\
+        my_data | "my_name"_test = [](auto && sample) {
+            auto & [my_sample0, my_sample1] = sample;
+            foo(my_sample1, my_sample1);
+        };
+        """,
+    ),
+    (
+        """\
+        BOOST_DATA_TEST_CASE_F(my_fixture, my_name, my_data, my_sample0, my_sample1) {
+            foo(my_sample1, my_sample1);
+        }
+        """,
+        """\
+        my_data | "my_name"_test = [](auto && sample) {
+            auto & [my_sample0, my_sample1] = sample;
+            my_fixture fixture{};
+            foo(my_sample1, my_sample1);
+        };
+        """,
+    ),
+]
+
+
+@pytest.mark.parametrize("case,expected", case_testdata)
+def test_close(case, expected):
+    kwargs = {"namespace": "ct", "use_literals": True}
+    parsers = [
+        boost.FixtureSuiteConverter(),
+        boost.SuiteConverter(),
+        boost.CaseConverter(),
+        boost.FixtureCaseConverter(),
+        boost.FixtureDataCaseConverter(),
+        boost.DataCaseConverter(),
+    ]
+    lines = migrate.convert_lines(lines=base.split_lines(case), handlers=parsers, **kwargs)
+    assert lines == base.split_lines(expected)
